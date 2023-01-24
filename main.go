@@ -33,24 +33,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	for _, course := range courses {
+	// for _, course := range courses {
+	course := courses[3]
 
-		log.Printf("getting moodle course grades for \"%v\"", course["fullname"])
-		courseid := fmt.Sprint(course["id"])
-		grades, err := moodleAPI.GetCourseGrades(courseid)
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
-
-		for i, grade := range grades {
-			fmt.Printf("%02v: %v\n", i, grade)
-		}
+	log.Printf("getting moodle course grades for \"%v\"", course.Fullname)
+	grades, err := moodleAPI.GetCourseGrades(course)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
 	}
 
-	// fmt.Printf("grades: %v\n", grades)
-
-	// printNonHidedCourses(courses)
+	for i, grade := range grades {
+		fmt.Printf("%02v: %v\n", i, grade)
+	}
+	// }
 }
 
 func printCoursesWithGrades() {

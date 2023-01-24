@@ -2,7 +2,6 @@ package moodleapi
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -11,14 +10,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tidwall/gjson"
+	moodlegrades "github.com/aDeepRecession/moodle-scrapper/pkg/moodleGrades"
 )
-
-var errGradeRowIsEmpty error = errors.New("grade row is empty")
 
 type MoodleAPI struct {
 	token  string
 	userid string
+}
+
+type Course struct {
+	ID                int    `json:"id"`
+	Timemodified      int64  `json:"timemodified"`
+	Fullname          string `json:"fullname"`
+	Enrolledusercount int    `json:"enrolledusercount"`
+	Startdate         int64  `json:"startdate"`
+	Enddate           int64  `json:"enddate"`
+	Hidden            bool   `json:"hidden"`
 }
 
 func NewMoodleAPI(token string) (MoodleAPI, error) {
@@ -32,18 +39,28 @@ func NewMoodleAPI(token string) (MoodleAPI, error) {
 	return moodleAPI, nil
 }
 
-func (api MoodleAPI) GetCourses() ([]map[string]interface{}, error) {
+func (api MoodleAPI) GetCourseGrades(course Course) ([]moodlegrades.GradeReport, error) {
+	gradesManager := moodlegrades.NewMoodleGrades(api, api.userid)
+
+	courseGrades, err := gradesManager.GetCourseGrades(fmt.Sprint(course.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	return courseGrades, nil
+}
+
+func (api MoodleAPI) GetCourses() ([]Course, error) {
 	data := map[string]string{
 		"userid": api.userid,
 	}
 
-	coursesRes, err := api.moodleAPIRequest("core_enrol_get_users_courses", data)
+	coursesJSON, err := api.MoodleAPIRequest("core_enrol_get_users_courses", data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get courses: %v", err)
 	}
 
-	var courses []map[string]interface{}
-	err = json.Unmarshal([]byte(coursesRes), &courses)
+	courses, err := api.parseCoursesJSON(coursesJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get courses: %v", err)
 	}
@@ -51,117 +68,21 @@ func (api MoodleAPI) GetCourses() ([]map[string]interface{}, error) {
 	return courses, nil
 }
 
-type GradeReport struct {
-	Title        string
-	Grade        string
-	Persentage   string
-	Feedback     string
-	Contribution string
-	Range        string
-	Weight       string
-}
-
-func (api MoodleAPI) GetCourseGrades(courseid string) ([]GradeReport, error) {
-	data := map[string]string{
-		"userid":   api.userid,
-		"courseid": courseid,
-	}
-
-	gradesRes, err := api.moodleAPIRequest("gradereport_user_get_grades_table", data)
+func (api MoodleAPI) parseCoursesJSON(coursesJSON []byte) ([]Course, error) {
+	var courses []Course
+	err := json.Unmarshal(coursesJSON, &courses)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get course grades: %v", err)
+		return nil, fmt.Errorf("failed to parse courses: %v", err)
 	}
 
-	gradesJSON := string(gradesRes)
-	grades := api.parseGradeTable(string(gradesJSON))
-
-	return grades, nil
-}
-
-func (api MoodleAPI) parseGradeTable(gradesJSON string) []GradeReport {
-	gradeRows := gjson.Get(gradesJSON, "tables.0.tabledata").Array()
-	gradesReport := make([]GradeReport, len(gradeRows))
-
-	for rowInx, gradeRow := range gradeRows {
-
-		gradeReport, err := api.parseGradeRow(gradeRow)
-		if errors.Is(err, errGradeRowIsEmpty) {
-			continue
-		}
-		if err != nil {
-			panic(err)
-		}
-
-		gradesReport[rowInx] = gradeReport
-	}
-
-	return gradesReport
-}
-
-func (api MoodleAPI) parseGradeRow(gradeRow gjson.Result) (GradeReport, error) {
-	titleUnparced := gradeRow.Get("itemname.content").String()
-	if titleUnparced == "" {
-		return GradeReport{}, errGradeRowIsEmpty
-	}
-	title := api.parseTitle(titleUnparced)
-
-	grade := gradeRow.Get("grade.content").String()
-
-	percentage := gradeRow.Get("percentage.content").String()
-
-	weight := gradeRow.Get("weight.content").String()
-
-	contributionToCourse := gradeRow.Get("contributiontocoursetotal.content").String()
-
-	rangeUnparced := gradeRow.Get("range.content").String()
-	gradeRange := api.parseRange(rangeUnparced)
-
-	feedbackUnparced := gradeRow.Get("feedback.content").String()
-	feedback := api.parseFeedback(feedbackUnparced)
-
-	gradeReport := GradeReport{
-		Title:        title,
-		Grade:        grade,
-		Persentage:   percentage,
-		Feedback:     feedback,
-		Contribution: contributionToCourse,
-		Range:        gradeRange,
-		Weight:       weight,
-	}
-
-	return gradeReport, nil
-}
-
-func (api MoodleAPI) parseFeedback(feedbackUnparced string) string {
-	feedback := api.getStringBetween(feedbackUnparced, "<div class=\"text_to_html\">", "</div>")
-
-	return strings.ReplaceAll(feedback, "&ndash;", "-")
-}
-
-func (api MoodleAPI) parseRange(rangeUnparced string) string {
-	return strings.ReplaceAll(rangeUnparced, "&ndash;", "-")
-}
-
-func (api MoodleAPI) parseTitle(unparsedTitle string) string {
-	title := api.getStringBetween(unparsedTitle, "title=\"", "\"")
-	return title
-}
-
-func (api MoodleAPI) getStringBetween(str string, startS string, endS string) string {
-	s := strings.Index(str, startS)
-	if s == -1 {
-		return ""
-	}
-	newS := str[s+len(startS):]
-	e := strings.Index(newS, endS)
-	if e == -1 {
-		return ""
-	}
-	result := newS[:e]
-	return result
+	return courses, nil
 }
 
 func (api MoodleAPI) getUserID() (string, error) {
+	if api.userid != "" {
+		return api.userid, nil
+	}
+
 	log.Println("getting moodle user id...")
 
 	info, err := api.getCoreWebsiteInfo()
@@ -180,14 +101,14 @@ func (api MoodleAPI) getUserID() (string, error) {
 }
 
 func (api MoodleAPI) getCoreWebsiteInfo() ([]byte, error) {
-	info, err := api.moodleAPIRequest("core_webservice_get_site_info", nil)
+	info, err := api.MoodleAPIRequest("core_webservice_get_site_info", nil)
 	if err != nil {
 		return nil, err
 	}
 	return info, nil
 }
 
-func (api MoodleAPI) moodleAPIRequest(
+func (api MoodleAPI) MoodleAPIRequest(
 	requestFunction string,
 	dataArgs map[string]string,
 ) ([]byte, error) {
