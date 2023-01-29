@@ -33,7 +33,8 @@ func NewGradesHistory(cfg SaveConfig, log *log.Logger) GradesHistory {
 func (gh GradesHistory) UpdateGradesHistory(newGrades []CourseGrades) error {
 	oldGrades, err := gh.getOldGrades()
 	if err != nil {
-		return err
+		gh.log.Println(err)
+		oldGrades = []CourseGrades{}
 	}
 
 	gc := newGradesComparator(gh.log)
