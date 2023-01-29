@@ -44,24 +44,29 @@ func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []Course
 		fromCourse := from[fromCourseInx]
 		toCourse := to[toCourseInx]
 
+		gradesTableChange := []GradeRowChange{}
+
 		newCourseAdded := fromCourse.Course.ID > toCourse.Course.ID
 		if newCourseAdded {
+			gradesTableChange = gc.compareGradeReports(nil, toCourse.Grades)
 			toCourseInx++
-			continue
 		}
 
 		oldCourseRemoved := fromCourse.Course.ID < toCourse.Course.ID
 		if oldCourseRemoved {
+			gradesTableChange = gc.compareGradeReports(fromCourse.Grades, nil)
 			fromCourseInx++
-			continue
 		}
 
-		gradesTableChange := gc.compareGradeReports(fromCourse.Grades, toCourse.Grades)
+		theSameCourses := fromCourse.Course.ID == toCourse.Course.ID
+		if theSameCourses {
+			gradesTableChange = gc.compareGradeReports(fromCourse.Grades, toCourse.Grades)
+			fromCourseInx++
+			toCourseInx++
+		}
 
 		noUpdates := len(gradesTableChange) == 0
 		if noUpdates {
-			fromCourseInx++
-			toCourseInx++
 			continue
 		}
 
@@ -70,9 +75,30 @@ func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []Course
 			GradesTableChange: gradesTableChange,
 		}
 		courseGradesChange = append(courseGradesChange, courseGradesChanges)
+	}
 
+	for fromCourseInx < len(from) {
+		fromCourse := from[fromCourseInx]
+		gradesTableChange := gc.compareGradeReports(fromCourse.Grades, nil)
 		fromCourseInx++
+
+		courseGradesChanges := CourseGradesChange{
+			Course:            fromCourse.Course,
+			GradesTableChange: gradesTableChange,
+		}
+		courseGradesChange = append(courseGradesChange, courseGradesChanges)
+	}
+
+	for toCourseInx < len(to) {
+		toCourse := to[toCourseInx]
+		gradesTableChange := gc.compareGradeReports(toCourse.Grades, nil)
 		toCourseInx++
+
+		courseGradesChanges := CourseGradesChange{
+			Course:            toCourse.Course,
+			GradesTableChange: gradesTableChange,
+		}
+		courseGradesChange = append(courseGradesChange, courseGradesChanges)
 	}
 
 	return courseGradesChange
