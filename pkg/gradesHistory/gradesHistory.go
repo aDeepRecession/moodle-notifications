@@ -44,7 +44,7 @@ func (gh GradesHistory) UpdateGradesHistory(newGrades []CourseGrades) error {
 	if err != nil {
 		return err
 	}
-	gh.log.Printf("saved new grades to %v\n", gh.cfg.GradesHistoryPath)
+	gh.log.Printf("saved new grades to %q\n", gh.cfg.LastGradesPath)
 
 	return nil
 }
