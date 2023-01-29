@@ -58,6 +58,13 @@ func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []Course
 
 		gradesTableChange := gc.compareGradeReports(fromCourse.Grades, toCourse.Grades)
 
+		noUpdates := len(gradesTableChange) == 0
+		if noUpdates {
+			fromCourseInx++
+			toCourseInx++
+			continue
+		}
+
 		courseGradesChanges := CourseGradesChange{
 			Course:            fromCourse.Course,
 			GradesTableChange: gradesTableChange,
