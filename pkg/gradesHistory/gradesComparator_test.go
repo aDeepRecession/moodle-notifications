@@ -3,15 +3,107 @@ package gradeshistory
 import (
 	"testing"
 
+	moodleapi "github.com/aDeepRecession/moodle-scrapper/pkg/moodleAPI"
 	moodlegrades "github.com/aDeepRecession/moodle-scrapper/pkg/moodleGrades"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestCoursesComparison(t *testing.T) {
+	t.Run("grade row update", func(t *testing.T) {
+		gradeFrom := moodlegrades.GradeReport{ID: 5, Title: "Final exam", Grade: "-"}
+		gradeTo := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "60"}
+		course := moodleapi.Course{ID: 1, Fullname: "AGLA"}
+		courseFrom := []CourseGrades{{
+			Course: course,
+			Grades: []moodlegrades.GradeReport{gradeFrom},
+		}}
+		courseTo := []CourseGrades{{
+			Course: course,
+			Grades: []moodlegrades.GradeReport{gradeTo},
+		}}
+
+		gc := gradesComparator{}
+		gradecChanges := gc.compareCourseGrades(courseFrom, courseTo)
+
+		expected := []CourseGradesChange{{
+			Course: course,
+			GradesTableChange: []GradeRowChange{{
+				ID:     5,
+				Type:   "update",
+				Fields: []string{"Title", "Grade"},
+				From:   gradeFrom,
+				To:     gradeTo,
+			}},
+		}}
+		assert.Equal(t, expected, gradecChanges)
+	})
+
+	t.Run("several grade rows update", func(t *testing.T) {
+	})
+
+	t.Run("new grade row", func(t *testing.T) {
+		oldGrade := moodlegrades.GradeReport{ID: 2, Title: "midterm", Grade: "-"}
+		newGrade := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "60"}
+		course := moodleapi.Course{ID: 1, Fullname: "AGLA"}
+		courseFrom := []CourseGrades{{
+			Course: course,
+			Grades: []moodlegrades.GradeReport{oldGrade},
+		}}
+		courseTo := []CourseGrades{{
+			Course: course,
+			Grades: []moodlegrades.GradeReport{oldGrade, newGrade},
+		}}
+
+		gc := gradesComparator{}
+		gradecChanges := gc.compareCourseGrades(courseFrom, courseTo)
+
+		expected := []CourseGradesChange{{
+			Course: course,
+			GradesTableChange: []GradeRowChange{{
+				ID:     5,
+				Type:   "create",
+				Fields: []string{},
+				To:     newGrade,
+			}},
+		}}
+		assert.Equal(t, expected, gradecChanges)
+	})
+
+	t.Run("row deleted", func(t *testing.T) {
+	})
+
+	t.Run("course deleted", func(t *testing.T) {
+	})
+
+	t.Run("new course", func(t *testing.T) {
+		gradeTo := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "60"}
+		course := moodleapi.Course{ID: 1, Fullname: "AGLA"}
+		courseFrom := []CourseGrades{}
+		courseTo := []CourseGrades{{
+			Course: course,
+			Grades: []moodlegrades.GradeReport{gradeTo},
+		}}
+
+		gc := gradesComparator{}
+		gradecChanges := gc.compareCourseGrades(courseFrom, courseTo)
+
+		expected := []CourseGradesChange{{
+			Course: course,
+			GradesTableChange: []GradeRowChange{{
+				ID:     5,
+				Type:   "create",
+				Fields: []string{},
+				To:     gradeTo,
+			}},
+		}}
+		assert.Equal(t, expected, gradecChanges)
+	})
+}
 
 func TestGradesTablesComparison(t *testing.T) {
 	t.Run("grade row update", func(t *testing.T) {
 		gradeFrom := moodlegrades.GradeReport{ID: 5, Title: "Final exam", Grade: "-"}
 		gradeTo := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "60"}
-
 		from := []moodlegrades.GradeReport{
 			gradeFrom,
 		}
@@ -38,7 +130,6 @@ func TestGradesTablesComparison(t *testing.T) {
 	t.Run("several grade rows update", func(t *testing.T) {
 		finalGradeFrom := moodlegrades.GradeReport{ID: 5, Title: "Final exam", Grade: "-"}
 		finalGradeTo := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "60"}
-
 		midGradeFrom := moodlegrades.GradeReport{ID: 3, Title: "Mid exam", Grade: "-"}
 		midGradeTo := moodlegrades.GradeReport{ID: 3, Title: "MID EXAM", Grade: "50"}
 
@@ -116,11 +207,5 @@ func TestGradesTablesComparison(t *testing.T) {
 			},
 		}
 		assert.Equal(t, expect, changelog)
-	})
-
-	t.Run("course deleted", func(t *testing.T) {
-	})
-
-	t.Run("new course", func(t *testing.T) {
 	})
 }

@@ -80,25 +80,27 @@ func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []Course
 	for fromCourseInx < len(from) {
 		fromCourse := from[fromCourseInx]
 		gradesTableChange := gc.compareGradeReports(fromCourse.Grades, nil)
-		fromCourseInx++
 
 		courseGradesChanges := CourseGradesChange{
 			Course:            fromCourse.Course,
 			GradesTableChange: gradesTableChange,
 		}
 		courseGradesChange = append(courseGradesChange, courseGradesChanges)
+
+		fromCourseInx++
 	}
 
 	for toCourseInx < len(to) {
 		toCourse := to[toCourseInx]
-		gradesTableChange := gc.compareGradeReports(toCourse.Grades, nil)
-		toCourseInx++
+		gradesTableChange := gc.compareGradeReports(nil, toCourse.Grades)
 
 		courseGradesChanges := CourseGradesChange{
 			Course:            toCourse.Course,
 			GradesTableChange: gradesTableChange,
 		}
 		courseGradesChange = append(courseGradesChange, courseGradesChanges)
+
+		toCourseInx++
 	}
 
 	return courseGradesChange
@@ -119,23 +121,8 @@ func (gc gradesComparator) compareGradeReports(
 		fromGrade := from[fromGradeInx]
 		toGrade := to[toGradeInx]
 
-		newCourseAdded := fromGrade.ID > toGrade.ID
-		if newCourseAdded {
-
-			removedGrade := GradeRowChange{
-				Type:   "remove",
-				ID:     toGrade.ID,
-				Fields: []string{},
-				From:   fromGrade,
-			}
-			gradesTableChnages = append(gradesTableChnages, removedGrade)
-
-			toGradeInx++
-			continue
-		}
-
-		oldCourseRemoved := fromGrade.ID < toGrade.ID
-		if oldCourseRemoved {
+		newGradeAdded := fromGrade.ID > toGrade.ID
+		if newGradeAdded {
 
 			createdGrade := GradeRowChange{
 				Type:   "create",
@@ -144,6 +131,21 @@ func (gc gradesComparator) compareGradeReports(
 				To:     fromGrade,
 			}
 			gradesTableChnages = append(gradesTableChnages, createdGrade)
+
+			toGradeInx++
+			continue
+		}
+
+		oldGradeRemoved := fromGrade.ID < toGrade.ID
+		if oldGradeRemoved {
+
+			removedGrade := GradeRowChange{
+				Type:   "remove",
+				ID:     toGrade.ID,
+				Fields: []string{},
+				From:   fromGrade,
+			}
+			gradesTableChnages = append(gradesTableChnages, removedGrade)
 
 			fromGradeInx++
 			continue
