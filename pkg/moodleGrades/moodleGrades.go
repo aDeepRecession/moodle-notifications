@@ -3,6 +3,7 @@ package moodlegrades
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -11,6 +12,7 @@ import (
 var errGradeRowIsNotGradeRow error = errors.New("row is not grade row")
 
 type GradeReport struct {
+	ID           int
 	Title        string
 	Grade        string
 	Persentage   string
@@ -84,6 +86,12 @@ func (mg MoodleGrades) parseGradeRow(gradeRow gjson.Result) (GradeReport, error)
 		return GradeReport{}, errGradeRowIsNotGradeRow
 	}
 
+	idStr := gradeRow.Get("itemname.id").String()
+	id, err := strconv.Atoi(mg.getStringBetween(idStr, "_", "_"))
+	if err != nil {
+		panic(err)
+	}
+
 	grade := gradeRow.Get("grade.content").String()
 
 	percentage := gradeRow.Get("percentage.content").String()
@@ -99,6 +107,7 @@ func (mg MoodleGrades) parseGradeRow(gradeRow gjson.Result) (GradeReport, error)
 	feedback := mg.parseFeedback(feedbackUnparced)
 
 	gradeReport := GradeReport{
+		ID:           id,
 		Title:        title,
 		Grade:        grade,
 		Persentage:   percentage,
