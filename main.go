@@ -53,13 +53,13 @@ func main() {
 			os.Exit(1)
 		}
 
-		messagesSended, err := sendNotificationOnLastUpdates(notifyer, gradesHistory)
+		messagesSended, err := sendNotificationOnLastUpdates(&notifyer, gradesHistory)
 		if err != nil {
 			logger.Println(err)
 		}
 		logger.Printf("sended %v messages\n", messagesSended)
 
-		checkIntervalDuraion := time.Minute * 60
+		checkIntervalDuraion := time.Minute * 10
 		logger.Printf(
 			"Waiting... next check at %q",
 			getNextCheckTime(checkIntervalDuraion).Format(time.Layout),
@@ -69,7 +69,7 @@ func main() {
 }
 
 func sendNotificationOnLastUpdates(
-	notifyer notifyer.Notifyer,
+	notifyer *notifyer.Notifyer,
 	gradesHistory gradeshistory.GradesHistory,
 ) (int, error) {
 	lastTimeNotifyed := notifyer.GetLastTimeModifyed()
