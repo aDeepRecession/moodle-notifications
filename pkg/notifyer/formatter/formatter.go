@@ -60,7 +60,10 @@ func (f Formatter) FilterGradesChanges(courseChanges []CourseGradesChange) []Cou
 func (f Formatter) filterGradeRows(gradeRows []GradeRowChange) []GradeRowChange {
 	filteredGradeChange := []GradeRowChange{}
 	for _, gradeChange := range gradeRows {
-		if !f.doesContainSomeUpdateToCheck(gradeChange) {
+		isUpdateNotTracked := gradeChange.Type == "update" &&
+			!f.doesContainSomeUpdateToCheck(gradeChange)
+
+		if isUpdateNotTracked {
 			continue
 		}
 
@@ -129,6 +132,11 @@ func (f Formatter) convertGradeField(
 	field string,
 	changed bool,
 ) (string, error) {
+	fieldValueTo, err := f.getFieldValue(field, to)
+	if err != nil {
+		return "", err
+	}
+
 	fieldValueFrom, err := f.getFieldValue(field, from)
 	if err != nil {
 		return "", err
@@ -136,13 +144,8 @@ func (f Formatter) convertGradeField(
 
 	fieldChangeMsg := ""
 	if !changed {
-		fieldChangeMsg = fmt.Sprintf("%s:  %q", field, fieldValueFrom)
+		fieldChangeMsg = fmt.Sprintf("%s:  %q", field, fieldValueTo)
 	} else {
-		fieldValueTo, err := f.getFieldValue(field, to)
-		if err != nil {
-			return "", err
-		}
-
 		fieldChangeMsg = fmt.Sprintf("%s:  %q  ->  %q", field, fieldValueFrom, fieldValueTo)
 	}
 

@@ -46,8 +46,9 @@ func (gh GradesHistory) GetGradesHistoryFromDate(
 
 	newHistory := []CourseGradesChange{}
 	for _, field := range history {
-		isFieldTooOld := fromTime.After(field.Time)
-		if isFieldTooOld {
+		isUpdateActual := fromTime.Before(field.Time)
+
+		if !isUpdateActual {
 			continue
 		}
 

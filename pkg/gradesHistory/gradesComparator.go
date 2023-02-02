@@ -207,10 +207,27 @@ func (gc gradesComparator) compareGrades(from, to moodlegrades.GradeReport) Grad
 	}
 
 	for _, change := range changes {
+		if gc.isFieldUpdateUseless(change.To.(string)) {
+			continue
+		}
+
 		gradeRowChange.Fields = append(gradeRowChange.Fields, change.Path...)
 	}
 
+	areNoFieldsUpdated := len(gradeRowChange.Fields) == 0
+	if areNoFieldsUpdated {
+		return GradeRowChange{Type: "nochange"}
+	}
+
 	return gradeRowChange
+}
+
+func (gc gradesComparator) isFieldUpdateUseless(to string) bool {
+	if to == "Error" || to == "-" {
+		return true
+	}
+
+	return false
 }
 
 func (gc gradesComparator) sortGradesRows(rows *[]moodlegrades.GradeReport) {

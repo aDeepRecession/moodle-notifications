@@ -38,6 +38,35 @@ func TestCoursesComparison(t *testing.T) {
 		assert.Equal(t, expected, gradecChanges)
 	})
 
+	t.Run("grade row update with garbage result", func(t *testing.T) {
+		gradeFrom := moodlegrades.GradeReport{ID: 5, Title: "Final exam", Grade: "-"}
+		gradeTo := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "Error"}
+		course := moodleapi.Course{ID: 1, Fullname: "AGLA"}
+		courseFrom := []CourseGrades{{
+			Course: course,
+			Grades: []moodlegrades.GradeReport{gradeFrom},
+		}}
+		courseTo := []CourseGrades{{
+			Course: course,
+			Grades: []moodlegrades.GradeReport{gradeTo},
+		}}
+
+		gc := gradesComparator{}
+		gradecChanges := gc.compareCourseGrades(courseFrom, courseTo)
+
+		expected := []CourseGradesChange{{
+			Course: course,
+			GradesTableChange: []GradeRowChange{{
+				ID:     5,
+				Type:   "update",
+				Fields: []string{"Title"},
+				From:   gradeFrom,
+				To:     gradeTo,
+			}},
+		}}
+		assert.Equal(t, expected, gradecChanges)
+	})
+
 	t.Run("several grade rows update", func(t *testing.T) {
 	})
 
