@@ -8,11 +8,12 @@ import (
 	gradeshistory "github.com/aDeepRecession/moodle-scrapper/pkg/gradesHistory"
 	moodleapi "github.com/aDeepRecession/moodle-scrapper/pkg/moodleAPI"
 	moodletokensmanager "github.com/aDeepRecession/moodle-scrapper/pkg/moodleTokens"
+	"github.com/aDeepRecession/moodle-scrapper/pkg/notifyer"
+	"github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/formatter"
+	telegramnotifyer "github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/telegram"
 )
 
 var logger *log.Logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
-
-var checkIntervalDuraion = time.Minute * 10
 
 func main() {
 	tokens, err := moodletokensmanager.GetTokens()
@@ -27,6 +28,8 @@ func main() {
 		logger.Println(err)
 		os.Exit(1)
 	}
+
+	notifyer := getNotifyer()
 
 	for {
 		logger.Println("getting moodle courses...")
@@ -50,17 +53,87 @@ func main() {
 			os.Exit(1)
 		}
 
+		messagesSended, err := sendNotificationOnLastUpdates(notifyer, gradesHistory)
+		if err != nil {
+			logger.Println(err)
+		}
+		logger.Printf("sended %v messages\n", messagesSended)
+
+		checkIntervalDuraion := time.Minute * 60
 		logger.Printf(
 			"Waiting... next check at %q",
 			getNextCheckTime(checkIntervalDuraion).Format(time.Layout),
 		)
-
 		time.Sleep(checkIntervalDuraion)
 	}
 }
 
+func sendNotificationOnLastUpdates(
+	notifyer notifyer.Notifyer,
+	gradesHistory gradeshistory.GradesHistory,
+) (int, error) {
+	lastTimeNotifyed := notifyer.GetLastTimeModifyed()
+	updatesHistory, err := gradesHistory.GetGradesHistoryFromDate(lastTimeNotifyed)
+	if err != nil {
+		return 0, err
+	}
+
+	messagesSended, err := notifyer.SendUpdates(convertCourseGradesChange(updatesHistory))
+	if err != nil {
+		return 0, err
+	}
+
+	return messagesSended, err
+}
+
+func convertCourseGradesChange(
+	historyCourseGrades []gradeshistory.CourseGradesChange,
+) []formatter.CourseGradesChange {
+	formatterGrades := []formatter.CourseGradesChange{}
+	for _, change := range historyCourseGrades {
+
+		formatterTableChange := []formatter.GradeRowChange{}
+		for _, historyTableChage := range change.GradesTableChange {
+
+			formatterRowChange := formatter.GradeRowChange{
+				Type:   historyTableChage.Type,
+				Fields: historyTableChage.Fields,
+				From:   formatter.GradeReport(historyTableChage.From),
+				To:     formatter.GradeReport(historyTableChage.To),
+			}
+			formatterTableChange = append(formatterTableChange, formatterRowChange)
+		}
+
+		newGradeChange := formatter.CourseGradesChange{
+			Course:            formatter.Course{Fullname: change.Course.Fullname},
+			GradesTableChange: formatterTableChange,
+		}
+		formatterGrades = append(formatterGrades, newGradeChange)
+	}
+
+	return formatterGrades
+}
+
 func getNextCheckTime(sleepDuration time.Duration) time.Time {
 	return time.Now().Add(sleepDuration)
+}
+
+func getNotifyer() notifyer.Notifyer {
+	tgService := telegramnotifyer.NewTelegramNotifyer(
+		"5908469215:AAGB6TUPSN0aStQaGNZDjZRucOJHpj76G2E",
+		788782273,
+	)
+
+	cfg := formatter.FormatConfig{
+		UpdatesToCheck: []string{"Grade", "Persentage", "Feedback"},
+		ToPrint:        []string{"Title", "Grade", "Persentage", "Feedback"},
+		ToCheckCreates: true,
+	}
+	fmter := formatter.NewFormatter(cfg)
+
+	lastTimeNotifyed := time.Now().Add(-time.Hour * 24)
+
+	return notifyer.NewNotifyer(fmter, tgService, lastTimeNotifyed)
 }
 
 func getGradesForNonHiddenCourses(

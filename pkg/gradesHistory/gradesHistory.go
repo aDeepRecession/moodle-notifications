@@ -36,6 +36,27 @@ func NewGradesHistory(cfg SaveConfig, log *log.Logger) GradesHistory {
 	return GradesHistory{cfg, log}
 }
 
+func (gh GradesHistory) GetGradesHistoryFromDate(
+	fromTime time.Time,
+) ([]CourseGradesChange, error) {
+	history, err := gh.getChangeHistory()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get last grades history: %v", err)
+	}
+
+	newHistory := []CourseGradesChange{}
+	for _, field := range history {
+		isFieldTooOld := fromTime.After(field.Time)
+		if isFieldTooOld {
+			continue
+		}
+
+		newHistory = append(newHistory, field.Updates...)
+	}
+
+	return newHistory, nil
+}
+
 func (gh GradesHistory) UpdateGradesHistory(newGrades []CourseGrades) error {
 	oldGrades, err := gh.getOldGrades()
 	if err != nil {

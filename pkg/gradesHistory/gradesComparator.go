@@ -1,7 +1,6 @@
 package gradeshistory
 
 import (
-	"fmt"
 	"log"
 	"sort"
 
@@ -211,7 +210,6 @@ func (gc gradesComparator) compareGrades(from, to moodlegrades.GradeReport) Grad
 		gradeRowChange.Fields = append(gradeRowChange.Fields, change.Path...)
 	}
 
-	fmt.Printf("gradeRowChange: %+v\n", gradeRowChange)
 	return gradeRowChange
 }
 
