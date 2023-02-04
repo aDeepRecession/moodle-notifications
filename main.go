@@ -54,11 +54,15 @@ func main() {
 		}
 		gradesHistory := gradeshistory.NewGradesHistory(saveCfg, logger)
 
-		err = gradesHistory.UpdateGradesHistory(coursesGrades)
+		updatesNum, err := gradesHistory.UpdateGradesHistory(coursesGrades)
 		if err != nil {
 			logger.Println(err)
 			os.Exit(1)
 		}
+		log.Printf(
+			"have %v new updates",
+			updatesNum,
+		)
 
 		messagesSended, err := sendNotificationOnLastUpdates(&notifyer, gradesHistory)
 		if err != nil {

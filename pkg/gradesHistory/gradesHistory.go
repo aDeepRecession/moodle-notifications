@@ -58,7 +58,7 @@ func (gh GradesHistory) GetGradesHistoryFromDate(
 	return newHistory, nil
 }
 
-func (gh GradesHistory) UpdateGradesHistory(newGrades []CourseGrades) error {
+func (gh GradesHistory) UpdateGradesHistory(newGrades []CourseGrades) (int, error) {
 	oldGrades, err := gh.getOldGrades()
 	if err != nil {
 		gh.log.Println(err)
@@ -78,24 +78,16 @@ func (gh GradesHistory) UpdateGradesHistory(newGrades []CourseGrades) error {
 
 		err = gh.updateChangesHistory(newGradesHistoryField)
 		if err != nil {
-			return err
+			return 0, err
 		}
-		gh.log.Printf(
-			"updated %q with %v courses changed\n",
-			gh.cfg.GradesHistoryPath,
-			coursesChangedNum,
-		)
-	} else {
-		gh.log.Println("no changes")
 	}
 
 	err = gh.saveGrades(newGrades)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	gh.log.Printf("saved new grades to %q\n", gh.cfg.LastGradesPath)
 
-	return nil
+	return coursesChangedNum, nil
 }
 
 func (gh GradesHistory) updateChangesHistory(newChanges CourseGradesHistoryField) error {
