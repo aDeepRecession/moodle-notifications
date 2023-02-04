@@ -124,7 +124,7 @@ func (api MoodleAPI) MoodleAPIRequest(
 	}
 
 	client := http.Client{
-		Timeout: time.Second * 5,
+		Timeout: time.Second * 10,
 	}
 	moodleReq, err := http.NewRequest(http.MethodPost, moodleURL, strings.NewReader(data.Encode()))
 	moodleReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")

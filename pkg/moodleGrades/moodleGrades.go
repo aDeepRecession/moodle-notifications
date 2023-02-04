@@ -92,9 +92,11 @@ func (mg MoodleGrades) parseGradeRow(gradeRow gjson.Result) (GradeReport, error)
 		panic(err)
 	}
 
-	grade := gradeRow.Get("grade.content").String()
+	unparsedGrade := gradeRow.Get("grade.content").String()
+	grade := mg.parseGrade(unparsedGrade)
 
-	percentage := gradeRow.Get("percentage.content").String()
+	unparsedPercentage := gradeRow.Get("percentage.content").String()
+	percentage := mg.parsePersentage(unparsedPercentage)
 
 	weight := gradeRow.Get("weight.content").String()
 
@@ -120,10 +122,31 @@ func (mg MoodleGrades) parseGradeRow(gradeRow gjson.Result) (GradeReport, error)
 	return gradeReport, nil
 }
 
-func (mg MoodleGrades) parseFeedback(feedbackUnparced string) string {
-	feedback := mg.getStringBetween(feedbackUnparced, "<div class=\"text_to_html\">", "</div>")
+func (mg MoodleGrades) parseGrade(unparsedGrade string) string {
+	grade := mg.removeTags(unparsedGrade)
 
-	return strings.ReplaceAll(feedback, "&ndash;", "-")
+	if grade == "Error" || grade == "-" {
+		return ""
+	}
+
+	return grade
+}
+
+func (mg MoodleGrades) parsePersentage(unparsedPersentage string) string {
+	persentage := mg.removeTags(unparsedPersentage)
+
+	if persentage == "Error" || persentage == "-" {
+		return ""
+	}
+
+	return persentage
+}
+
+func (mg MoodleGrades) parseFeedback(feedbackUnparced string) string {
+	feedback := mg.removeTags(feedbackUnparced)
+
+	feedback = strings.ReplaceAll(feedback, "&ndash;", "")
+	return strings.ReplaceAll(feedback, "&nbsp;", "")
 }
 
 func (mg MoodleGrades) parseRange(rangeUnparced string) string {
@@ -151,4 +174,18 @@ func (mg MoodleGrades) getStringBetween(str string, startS string, endS string) 
 	}
 	result := newS[:e]
 	return result
+}
+
+func (mg MoodleGrades) removeTags(str string) string {
+	for strings.Contains(str, "<") {
+		start := strings.Index(str, "<")
+		end := strings.Index(str, ">")
+
+		before := str[:start]
+		after := str[end+1:]
+
+		str = before + after
+	}
+
+	return str
 }
