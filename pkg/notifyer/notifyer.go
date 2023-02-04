@@ -2,23 +2,61 @@ package notifyer
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"time"
 
 	"github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/formatter"
 )
 
 type Notifyer struct {
-	service          Service
-	formatter        Formatter
-	lastTimeNotifyed time.Time
+	service                  Service
+	formatter                Formatter
+	lastTimeNotifyedFilePath string
 }
 
-func NewNotifyer(formatter Formatter, service Service, lastTimeNotifyed time.Time) Notifyer {
-	return Notifyer{service, formatter, lastTimeNotifyed}
+func NewNotifyer(
+	formatter Formatter,
+	service Service,
+	lastTimeNotifyedFilePath string,
+) Notifyer {
+	return Notifyer{service, formatter, lastTimeNotifyedFilePath}
 }
 
-func (tn Notifyer) GetLastTimeModifyed() time.Time {
-	return tn.lastTimeNotifyed
+func (tn *Notifyer) SaveLastTimeNotifyed(timeNotifyed time.Time) error {
+	f, err := os.OpenFile(tn.lastTimeNotifyedFilePath, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("couldn't save last time notifyed: %v", err)
+	}
+	defer f.Close()
+
+	timeNotifyedStr := timeNotifyed.Format(time.Layout)
+	_, err = f.Write([]byte(timeNotifyedStr))
+	if err != nil {
+		return fmt.Errorf("couldn't save last time notifyed: %v", err)
+	}
+
+	return nil
+}
+
+func (tn Notifyer) GetLastTimeNotifyed() (time.Time, error) {
+	f, err := os.OpenFile(tn.lastTimeNotifyedFilePath, os.O_RDONLY, 0644)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("couldn't get last time notifyed: %v", err)
+	}
+	defer f.Close()
+
+	timeByte, err := io.ReadAll(f)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("couldn't get last time notifyed: %v", err)
+	}
+
+	lastTimeNotifyedTime, err := time.Parse(time.Layout, string(timeByte))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("couldn't get last time notifyed: %v", err)
+	}
+
+	return lastTimeNotifyedTime, nil
 }
 
 func (tn *Notifyer) SendUpdates(updates []formatter.CourseGradesChange) (int, error) {
@@ -28,10 +66,6 @@ func (tn *Notifyer) SendUpdates(updates []formatter.CourseGradesChange) (int, er
 	if err != nil {
 		return 0, fmt.Errorf("failed to send updates: %v", err)
 	}
-	if len(messages) == 0 {
-		tn.lastTimeNotifyed = time.Now()
-		return 0, nil
-	}
 
 	for _, msg := range messages {
 		err = tn.service.Send(msg)
@@ -39,8 +73,6 @@ func (tn *Notifyer) SendUpdates(updates []formatter.CourseGradesChange) (int, er
 			return 0, fmt.Errorf("failed to send updates: %v", err)
 		}
 	}
-
-	tn.lastTimeNotifyed = time.Now()
 
 	return len(messages), nil
 }

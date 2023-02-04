@@ -13,7 +13,14 @@ import (
 	telegramnotifyer "github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/telegram"
 )
 
-var logger *log.Logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
+var (
+	logger *log.Logger = log.New(
+		os.Stdout,
+		"",
+		log.Ldate|log.Ltime|log.Lshortfile,
+	)
+	lastTimeNotifyedFilePath string = "./last_time_notifyed_time"
+)
 
 func main() {
 	tokens, err := moodletokensmanager.GetTokens()
@@ -72,7 +79,13 @@ func sendNotificationOnLastUpdates(
 	notifyer *notifyer.Notifyer,
 	gradesHistory gradeshistory.GradesHistory,
 ) (int, error) {
-	lastTimeNotifyed := notifyer.GetLastTimeModifyed()
+	timeNotifyed := time.Now()
+
+	lastTimeNotifyed, err := notifyer.GetLastTimeNotifyed()
+	if err != nil {
+		lastTimeNotifyed = time.Now()
+	}
+
 	updatesHistory, err := gradesHistory.GetGradesHistoryFromDate(lastTimeNotifyed)
 	if err != nil {
 		return 0, err
@@ -81,6 +94,11 @@ func sendNotificationOnLastUpdates(
 	messagesSended, err := notifyer.SendUpdates(convertCourseGradesChange(updatesHistory))
 	if err != nil {
 		return 0, err
+	}
+
+	err = notifyer.SaveLastTimeNotifyed(timeNotifyed)
+	if err != nil {
+		return messagesSended, err
 	}
 
 	return messagesSended, err
@@ -131,9 +149,7 @@ func getNotifyer() notifyer.Notifyer {
 	}
 	fmter := formatter.NewFormatter(cfg)
 
-	lastTimeNotifyed := time.Now().Add(-time.Hour * 24)
-
-	return notifyer.NewNotifyer(fmter, tgService, lastTimeNotifyed)
+	return notifyer.NewNotifyer(fmter, tgService, lastTimeNotifyedFilePath)
 }
 
 func getGradesForNonHiddenCourses(
