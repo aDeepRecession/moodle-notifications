@@ -20,25 +20,26 @@ var (
 		log.Ldate|log.Ltime|log.Lshortfile,
 	)
 	lastTimeNotifyedFilePath string = "./last_time_notifyed_time"
+	credentialspath          string = "./credentials.json"
 )
 
 func main() {
-	tokens, err := moodletokensmanager.GetTokens()
-	if err != nil {
-		logger.Println(err)
-		os.Exit(1)
-	}
-
-	logger.Println("initializing moodleAPI...")
-	moodleAPI, err := moodleapi.NewMoodleAPI(tokens.Token)
-	if err != nil {
-		logger.Println(err)
-		os.Exit(1)
-	}
-
 	notifyer := getNotifyer()
 
 	for {
+		token, err := moodletokensmanager.GetTokens(credentialspath, logger)
+		if err != nil {
+			logger.Println(err)
+			os.Exit(1)
+		}
+
+		logger.Println("initializing moodleAPI...")
+		moodleAPI, err := moodleapi.NewMoodleAPI(string(token), logger)
+		if err != nil {
+			logger.Println(err)
+			os.Exit(1)
+		}
+
 		logger.Println("getting moodle courses...")
 		courses, err := moodleAPI.GetCourses()
 		if err != nil {

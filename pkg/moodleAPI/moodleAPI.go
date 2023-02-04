@@ -16,6 +16,7 @@ import (
 type MoodleAPI struct {
 	token  string
 	userid string
+	log    *log.Logger
 }
 
 type Course struct {
@@ -28,8 +29,8 @@ type Course struct {
 	Hidden            bool   `json:"hidden"`
 }
 
-func NewMoodleAPI(token string) (MoodleAPI, error) {
-	moodleAPI := MoodleAPI{token: token}
+func NewMoodleAPI(token string, log *log.Logger) (MoodleAPI, error) {
+	moodleAPI := MoodleAPI{token: token, log: log}
 	userid, err := moodleAPI.getUserID()
 	if err != nil {
 		return MoodleAPI{}, err
@@ -143,5 +144,14 @@ func (api MoodleAPI) MoodleAPIRequest(
 		return nil, fmt.Errorf("failed to make a request to moodle: %v", err)
 	}
 
+	if strings.Contains(string(body), "Invalid token") {
+		return nil, fmt.Errorf("invalid token")
+	}
+
 	return body, nil
+}
+
+func (api MoodleAPI) IsTokenGood() bool {
+	_, err := api.getCoreWebsiteInfo()
+	return err == nil
 }

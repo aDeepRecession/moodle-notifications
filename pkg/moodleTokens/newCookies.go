@@ -23,7 +23,10 @@ type cookieRequestManager struct {
 	log              *log.Logger
 }
 
-func newCookieRequestManager() (cookieRequestManager, error) {
+func newCookieRequestManager(
+	credentialsPath string,
+	logger *log.Logger,
+) (cookieRequestManager, error) {
 	cookiejar, err := cookiejar.New(nil)
 	if err != nil {
 		return cookieRequestManager{}, err
@@ -40,43 +43,46 @@ func newCookieRequestManager() (cookieRequestManager, error) {
 		},
 	}
 
-	credentials := ssocredentials.NewCredentialsManager()
-	logger := log.New(os.Stdout, log.Prefix(), log.Flags())
+	credentials := ssocredentials.NewCredentialsManager(credentialsPath)
 
 	return cookieRequestManager{client, clientNoRedirect, credentials, logger}, nil
 }
 
-func (reqManager *cookieRequestManager) requestNewTokens() (MoodleCookies, error) {
-	reqManager.log.Println("getting sso url...")
+func (reqManager *cookieRequestManager) requestNewTokens() (MoodleToken, error) {
+	reqManager.log.Println("getting new token...")
 	ssoURL, err := reqManager.getSsoURL()
 	if err != nil {
-		return MoodleCookies{}, fmt.Errorf("failed to get new tokens: %v", err)
+		return "", fmt.Errorf("failed to get tokens: %v", err)
 	}
 
-	reqManager.log.Println("logging in sso...")
 	code, state, err := reqManager.loginInSSO(ssoURL)
 	if err != nil {
-		return MoodleCookies{}, fmt.Errorf("failed to get new tokens: %v", err)
+		return "", fmt.Errorf("failed to get tokens: %v", err)
 	}
 
-	reqManager.log.Println("getting new tokens...")
-	tokens, err := reqManager.getMoodleTokens(code, state)
+	token, err := reqManager.getMoodleTokens(code, state)
 	if err != nil {
-		return MoodleCookies{}, fmt.Errorf("failed to get new tokens: %v", err)
+		return "", fmt.Errorf("failed to get tokens: %v", err)
 	}
 
-	return tokens, nil
+	reqManager.log.Println("saving tokens...")
+	err = reqManager.credentials.SaveToken(string(token))
+	if err != nil {
+		return "", fmt.Errorf("failed to get tokens: %v", err)
+	}
+
+	return token, nil
 }
 
-func (reqManager *cookieRequestManager) getMoodleTokens(code, state string) (MoodleCookies, error) {
+func (reqManager *cookieRequestManager) getMoodleTokens(code, state string) (MoodleToken, error) {
 	response, err := reqManager.sendMoodleCookieRequests(code, state)
 	if err != nil {
-		return MoodleCookies{}, fmt.Errorf("failed to get tokens from moodle: %v", err)
+		return "", fmt.Errorf("failed to get tokens from moodle: %v", err)
 	}
 
 	tokens, err := reqManager.extractTokens(response)
 	if err != nil {
-		return MoodleCookies{}, err
+		return "", err
 	}
 
 	reqManager.client.CheckRedirect = nil
@@ -147,7 +153,7 @@ func (reqManager *cookieRequestManager) sendMoodleCookieRequests(
 
 func (reqManager *cookieRequestManager) extractTokens(
 	response *http.Response,
-) (MoodleCookies, error) {
+) (MoodleToken, error) {
 	encryptedTokens := strings.ReplaceAll(
 		response.Header.Get("Location"),
 		"moodlemobile://token=",
@@ -158,12 +164,12 @@ func (reqManager *cookieRequestManager) extractTokens(
 	_, err := base64.NewDecoder(base64.StdEncoding, strings.NewReader(encryptedTokens)).
 		Read(byteTokens)
 	if err != nil {
-		return MoodleCookies{}, fmt.Errorf("failed to extract tokens: %v", err)
+		return "", fmt.Errorf("failed to extract tokens: %v", err)
 	}
 
 	tokens := strings.Split(string(byteTokens), ":::")
 
-	return MoodleCookies{tokens[0], tokens[1], tokens[2]}, nil
+	return MoodleToken(tokens[1]), nil
 }
 
 func (reqManager *cookieRequestManager) loginInSSO(

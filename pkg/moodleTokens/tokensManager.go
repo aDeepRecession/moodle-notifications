@@ -1,30 +1,42 @@
 package moodletokensmanager
 
+import (
+	"fmt"
+	"log"
 
-type MoodleCookies struct {
-    Secret1 string
-    Token string
-    Secret2 string
+	moodleapi "github.com/aDeepRecession/moodle-scrapper/pkg/moodleAPI"
+)
+
+type MoodleToken string
+
+func GetTokens(credentialsPath string, logger *log.Logger) (MoodleToken, error) {
+	cookieRequestManager, err := newCookieRequestManager(credentialsPath, logger)
+	if err != nil {
+		return "", err
+	}
+
+	loginCredentials, err := cookieRequestManager.credentials.GetLoginCredentials()
+	if err != nil {
+		return "", fmt.Errorf("failed to get old cookies: %v", err)
+	}
+	oldToken := MoodleToken(loginCredentials.Token)
+
+	if isTokenGood(oldToken, logger) {
+		return oldToken, nil
+	}
+
+	tokens, err := cookieRequestManager.requestNewTokens()
+	if err != nil {
+		return "", err
+	}
+
+	return tokens, nil
 }
 
-func GetTokens() (MoodleCookies, error) {
-
-    // get old cookies
-    // check if they are good
-
-    // get new cookies if they are bod
-    // save new cokies
-
-
-    cookieRequestManager, err := newCookieRequestManager()
-    if err != nil {
-        return MoodleCookies{}, err
-    }
-
-    tokens, err := cookieRequestManager.requestNewTokens()
-    if err != nil {
-        return MoodleCookies{}, err
-    }
-    return tokens, nil
+func isTokenGood(token MoodleToken, logger *log.Logger) bool {
+	api, err := moodleapi.NewMoodleAPI(string(token), logger)
+	if err != nil {
+		return false
+	}
+	return api.IsTokenGood()
 }
-

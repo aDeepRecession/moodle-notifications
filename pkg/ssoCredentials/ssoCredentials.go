@@ -7,19 +7,22 @@ import (
 	"os"
 )
 
-type SsoCredentialsManager struct{}
+type SsoCredentialsManager struct {
+	CredentialsPath string
+}
 
 type Credentials struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
+	Token    string `json:"token"`
 }
 
-func NewCredentialsManager() SsoCredentialsManager {
-	return SsoCredentialsManager{}
+func NewCredentialsManager(credentialsPath string) SsoCredentialsManager {
+	return SsoCredentialsManager{credentialsPath}
 }
 
 func (cm SsoCredentialsManager) GetLoginCredentials() (Credentials, error) {
-	credentialsFile, err := os.OpenFile("./credentials.json", os.O_RDONLY, 0644)
+	credentialsFile, err := os.OpenFile(cm.CredentialsPath, os.O_RDONLY, 0644)
 	if err != nil {
 		return Credentials{}, fmt.Errorf("failed to get credentials")
 	}
@@ -36,4 +39,34 @@ func (cm SsoCredentialsManager) GetLoginCredentials() (Credentials, error) {
 	}
 
 	return credentials, nil
+}
+
+func (cm SsoCredentialsManager) SaveToken(newToken string) error {
+	newCredentials, err := cm.GetLoginCredentials()
+	if err != nil {
+		return fmt.Errorf("failed to save credentials")
+	}
+
+	newCredentials.Token = newToken
+
+	credentialsFile, err := os.OpenFile(
+		cm.CredentialsPath,
+		os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+		0644,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to save credentials")
+	}
+
+	credentialsJSON, err := json.Marshal(newCredentials)
+	if err != nil {
+		return fmt.Errorf("failed to save credentials")
+	}
+
+	_, err = credentialsFile.Write(credentialsJSON)
+	if err != nil {
+		return fmt.Errorf("failed to save credentials")
+	}
+
+	return nil
 }
