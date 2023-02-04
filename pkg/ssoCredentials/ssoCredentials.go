@@ -19,7 +19,7 @@ func NewCredentialsManager() SsoCredentialsManager {
 }
 
 func (cm SsoCredentialsManager) GetLoginCredentials() (Credentials, error) {
-	credentialsFile, err := os.OpenFile("./credentials.json", os.O_RDONLY, 644)
+	credentialsFile, err := os.OpenFile("./credentials.json", os.O_RDONLY, 0644)
 	if err != nil {
 		return Credentials{}, fmt.Errorf("failed to get credentials")
 	}
@@ -30,7 +30,10 @@ func (cm SsoCredentialsManager) GetLoginCredentials() (Credentials, error) {
 	}
 
 	var credentials Credentials
-	json.Unmarshal(credentialsJSON, &credentials)
+	err = json.Unmarshal(credentialsJSON, &credentials)
+	if err != nil {
+		return Credentials{}, fmt.Errorf("failed to get credentials")
+	}
 
 	return credentials, nil
 }
