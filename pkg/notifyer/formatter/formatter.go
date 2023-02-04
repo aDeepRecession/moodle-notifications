@@ -28,6 +28,10 @@ func (f Formatter) ConvertUpdatesToString(gradesChanges []CourseGradesChange) ([
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert updates for print: %v", err)
 		}
+		if gradesChanges == "" {
+			continue
+		}
+
 		msg.WriteString(gradesChanges)
 		msg.WriteString("\n\n")
 
@@ -95,6 +99,10 @@ func (f Formatter) convertGradeTableToString(gradeChanges []GradeRowChange) (str
 		if err != nil {
 			return "", err
 		}
+		if gradeChange == "" {
+			continue
+		}
+
 		changesStr.WriteString(gradeChange)
 
 		changesStr.WriteString("\n\n")
@@ -105,6 +113,24 @@ func (f Formatter) convertGradeTableToString(gradeChanges []GradeRowChange) (str
 
 func (f Formatter) convertGradeChangeToString(rowChanges GradeRowChange) (string, error) {
 	changesStr := strings.Builder{}
+
+	if rowChanges.Type == "remove" {
+		if !f.cfg.ToCheckCreates {
+			return "", nil
+		}
+
+		changesStr.WriteString("(removed)")
+		changesStr.WriteString("\n")
+	}
+
+	if rowChanges.Type == "create" {
+		if !f.cfg.ToCheckCreates {
+			return "", nil
+		}
+
+		changesStr.WriteString("(new)")
+		changesStr.WriteString("\n")
+	}
 
 	for _, fieldToPrint := range f.cfg.ToPrint {
 		changed := slices.Contains(rowChanges.Fields, fieldToPrint)
@@ -177,6 +203,7 @@ type FormatConfig struct {
 	ToPrint        []string
 	UpdatesToCheck []string
 	ToCheckCreates bool
+	ToCheckRemoves bool
 }
 
 type CourseGradesChange struct {

@@ -28,6 +28,10 @@ func (tn *Notifyer) SendUpdates(updates []formatter.CourseGradesChange) (int, er
 	if err != nil {
 		return 0, fmt.Errorf("failed to send updates: %v", err)
 	}
+	if len(messages) == 0 {
+		tn.lastTimeNotifyed = time.Now()
+		return 0, nil
+	}
 
 	for _, msg := range messages {
 		err = tn.service.Send(msg)
