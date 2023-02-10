@@ -84,8 +84,6 @@ func sendNotificationOnLastUpdates(
 	notifyer *notifyer.Notifyer,
 	gradesHistory gradeshistory.GradesHistory,
 ) (int, error) {
-	timeNotifyed := time.Now()
-
 	lastTimeNotifyed, err := notifyer.GetLastTimeNotifyed()
 	if err != nil {
 		lastTimeNotifyed = time.Now()
@@ -101,6 +99,7 @@ func sendNotificationOnLastUpdates(
 		return 0, err
 	}
 
+	timeNotifyed := time.Now().Add(time.Second * 2)
 	err = notifyer.SaveLastTimeNotifyed(timeNotifyed)
 	if err != nil {
 		return messagesSended, err

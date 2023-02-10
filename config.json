@@ -1,0 +1,21 @@
+{
+  "failedRequestRepeatTimeout": 60,
+  "UpdatesToCheck": [
+    "Grade",
+    "Persentage",
+    "Feedback"
+  ],
+  "ToPrint": [
+    "Title",
+    "Grade",
+    "Persentage",
+    "Feedback"
+  ],
+  "telegramBotKey": "",
+  "telegramChatID": 0,
+  "checkInterval": 3600,
+  "LastGradesPath": "./last_grades.json",
+  "GradesHistoryPath": "./grades_history.json",
+  "credentialsPath": "./credentials.json",
+  "lastTimeNotifyedPath": "./last_time_notifyed_time"
+}
