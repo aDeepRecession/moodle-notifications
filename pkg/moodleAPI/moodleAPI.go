@@ -84,8 +84,6 @@ func (api MoodleAPI) getUserID() (string, error) {
 		return api.userid, nil
 	}
 
-	log.Println("getting moodle user id...")
-
 	info, err := api.getCoreWebsiteInfo()
 	if err != nil {
 		return "", err

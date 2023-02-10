@@ -1,21 +1,20 @@
 {
   "failedRequestRepeatTimeout": 60,
-  "UpdatesToCheck": [
+  "checkInterval": 3600,
+  "updatesToCheck": [
     "Grade",
     "Persentage",
     "Feedback"
   ],
-  "ToPrint": [
+  "toPrint": [
     "Title",
     "Grade",
     "Persentage",
     "Feedback"
   ],
-  "telegramBotKey": "",
-  "telegramChatID": 0,
-  "checkInterval": 3600,
-  "LastGradesPath": "./last_grades.json",
-  "GradesHistoryPath": "./grades_history.json",
-  "credentialsPath": "./credentials.json",
+  "lastGradesPath": "./last_grades.json",
+  "gradesHistoryPath": "./grades_history.json",
+  "moodleCredentialsPath": "./moodle-credentials.json",
+  "telegramCredentialsPath": "./telegram-credentials.json",
   "lastTimeNotifyedPath": "./last_time_notifyed_time"
 }

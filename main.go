@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/aDeepRecession/moodle-scrapper/pkg/config"
 	gradeshistory "github.com/aDeepRecession/moodle-scrapper/pkg/gradesHistory"
 	moodleapi "github.com/aDeepRecession/moodle-scrapper/pkg/moodleAPI"
 	moodletokensmanager "github.com/aDeepRecession/moodle-scrapper/pkg/moodleTokens"
@@ -14,67 +15,57 @@ import (
 	telegramnotifyer "github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/telegram"
 )
 
-var (
-	logger *log.Logger = log.New(
-		os.Stdout,
-		"",
-		log.Ldate|log.Ltime|log.Lshortfile,
-	)
-	failedRequestRepeatTimeout               = time.Minute
-	UpdatesToCheck             []string      = []string{"Grade", "Persentage", "Feedback"}
-	ToPrint                    []string      = []string{"Title", "Grade", "Persentage", "Feedback"}
-	telegramBotKey             string        = "5908469215:AAGB6TUPSN0aStQaGNZDjZRucOJHpj76G2E"
-	telegramChatID             int           = 788782273
-	checkInterval              time.Duration = time.Minute * 10
-	LastGradesPath             string        = "./last_grades.json"
-	GradesHistoryPath          string        = "./grades_history.json"
-	credentialsPath            string        = "./credentials.json"
-	lastTimeNotifyedPath       string        = "./last_time_notifyed_time"
-)
+var configPath string = "./config.json"
 
 func main() {
-	notifyer := getNotifyer()
+	cfg, err := getConfig(configPath)
+	if err != nil {
+		cfg.Logger.Println(err)
+		os.Exit(1)
+	}
+
+	notifyer := getNotifyer(cfg)
 
 	for {
-		token, err := moodletokensmanager.GetTokens(credentialsPath, logger)
+		token, err := moodletokensmanager.GetTokens(cfg.MoodleCredentialsPath, cfg.Logger)
 		if err != nil {
-			logger.Println(err)
+			cfg.Logger.Println(err)
 			os.Exit(1)
 		}
 
-		logger.Println("initializing moodleAPI...")
-		moodleAPI, err := moodleapi.NewMoodleAPI(string(token), logger)
+		cfg.Logger.Println("initializing moodleAPI...")
+		moodleAPI, err := moodleapi.NewMoodleAPI(string(token), cfg.Logger)
 		if err != nil {
-			logger.Println(err)
+			cfg.Logger.Println(err)
 			os.Exit(1)
 		}
 
-		logger.Println("getting moodle courses...")
+		cfg.Logger.Println("getting moodle courses...")
 		courses, err := moodleAPI.GetCourses()
 		if err != nil {
-			logger.Println(err)
+			cfg.Logger.Println(err)
 			os.Exit(1)
 		}
 
 		coursesGrades, err := getGradesForNonHiddenCourses(moodleAPI, courses)
 		if err != nil {
-			logger.Println(err)
-			logger.Printf(
+			cfg.Logger.Println(err)
+			cfg.Logger.Printf(
 				"Waiting... next check at %q",
-				getNextCheckTime(failedRequestRepeatTimeout).Format(time.Layout),
+				getNextCheckTime(cfg.FailedRequestRepeatTimeout).Format(time.Layout),
 			)
-			time.Sleep(failedRequestRepeatTimeout)
+			time.Sleep(cfg.FailedRequestRepeatTimeout)
 		}
 
 		saveCfg := gradeshistory.SaveConfig{
-			LastGradesPath:    LastGradesPath,
-			GradesHistoryPath: GradesHistoryPath,
+			LastGradesPath:    cfg.LastGradesPath,
+			GradesHistoryPath: cfg.GradesHistoryPath,
 		}
-		gradesHistory := gradeshistory.NewGradesHistory(saveCfg, logger)
+		gradesHistory := gradeshistory.NewGradesHistory(saveCfg, cfg.Logger)
 
 		updatesNum, err := gradesHistory.UpdateGradesHistory(coursesGrades)
 		if err != nil {
-			logger.Println(err)
+			cfg.Logger.Println(err)
 			continue
 		}
 		log.Printf(
@@ -84,16 +75,31 @@ func main() {
 
 		messagesSended, err := sendNotificationOnLastUpdates(&notifyer, gradesHistory)
 		if err != nil {
-			logger.Println(err)
+			cfg.Logger.Println(err)
 		}
-		logger.Printf("sended %v messages\n", messagesSended)
+		cfg.Logger.Printf("sended %v messages\n", messagesSended)
 
-		logger.Printf(
+		cfg.Logger.Printf(
 			"Waiting... next check at %q",
-			getNextCheckTime(checkInterval).Format(time.Layout),
+			getNextCheckTime(cfg.CheckInterval).Format(time.Layout),
 		)
-		time.Sleep(checkInterval)
+		time.Sleep(cfg.CheckInterval)
 	}
+}
+
+func getConfig(configPath string) (config.Config, error) {
+	f, err := os.OpenFile(configPath, os.O_RDONLY, 0644)
+	if err != nil {
+		return config.Config{}, fmt.Errorf("failed to get configuration: %v", err)
+	}
+	defer f.Close()
+
+	cfg, err := config.NewConfig(f)
+	if err != nil {
+		return config.Config{}, fmt.Errorf("failed to get configuration: %v", err)
+	}
+
+	return cfg, nil
 }
 
 func sendNotificationOnLastUpdates(
@@ -156,21 +162,21 @@ func getNextCheckTime(sleepDuration time.Duration) time.Time {
 	return time.Now().Add(sleepDuration)
 }
 
-func getNotifyer() notifyer.Notifyer {
+func getNotifyer(cfg config.Config) notifyer.Notifyer {
 	tgService := telegramnotifyer.NewTelegramNotifyer(
-		telegramBotKey,
-		telegramChatID,
+		cfg.TelegramBotKey,
+		cfg.TelegramChatID,
 	)
 
-	cfg := formatter.FormatConfig{
-		UpdatesToCheck: UpdatesToCheck,
-		ToPrint:        ToPrint,
+	formatterConfig := formatter.FormatConfig{
+		UpdatesToCheck: cfg.UpdatesToCheck,
+		ToPrint:        cfg.ToPrint,
 		ToCheckCreates: false,
 		ToCheckRemoves: false,
 	}
-	fmter := formatter.NewFormatter(cfg)
+	fmter := formatter.NewFormatter(formatterConfig)
 
-	return notifyer.NewNotifyer(fmter, tgService, lastTimeNotifyedPath)
+	return notifyer.NewNotifyer(fmter, tgService, cfg.LastTimeNotifyedPath)
 }
 
 func getGradesForNonHiddenCourses(
