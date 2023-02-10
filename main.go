@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -19,15 +20,23 @@ var (
 		"",
 		log.Ldate|log.Ltime|log.Lshortfile,
 	)
-	lastTimeNotifyedFilePath string = "./last_time_notifyed_time"
-	credentialspath          string = "./credentials.json"
+	failedRequestRepeatTimeout               = time.Minute
+	UpdatesToCheck             []string      = []string{"Grade", "Persentage", "Feedback"}
+	ToPrint                    []string      = []string{"Title", "Grade", "Persentage", "Feedback"}
+	telegramBotKey             string        = "5908469215:AAGB6TUPSN0aStQaGNZDjZRucOJHpj76G2E"
+	telegramChatID             int           = 788782273
+	checkInterval              time.Duration = time.Minute * 10
+	LastGradesPath             string        = "./last_grades.json"
+	GradesHistoryPath          string        = "./grades_history.json"
+	credentialsPath            string        = "./credentials.json"
+	lastTimeNotifyedPath       string        = "./last_time_notifyed_time"
 )
 
 func main() {
 	notifyer := getNotifyer()
 
 	for {
-		token, err := moodletokensmanager.GetTokens(credentialspath, logger)
+		token, err := moodletokensmanager.GetTokens(credentialsPath, logger)
 		if err != nil {
 			logger.Println(err)
 			os.Exit(1)
@@ -47,18 +56,26 @@ func main() {
 			os.Exit(1)
 		}
 
-		coursesGrades := getGradesForNonHiddenCourses(moodleAPI, courses)
+		coursesGrades, err := getGradesForNonHiddenCourses(moodleAPI, courses)
+		if err != nil {
+			logger.Println(err)
+			logger.Printf(
+				"Waiting... next check at %q",
+				getNextCheckTime(failedRequestRepeatTimeout).Format(time.Layout),
+			)
+			time.Sleep(failedRequestRepeatTimeout)
+		}
 
 		saveCfg := gradeshistory.SaveConfig{
-			LastGradesPath:    "./last_grades.json",
-			GradesHistoryPath: "./grades_history.json",
+			LastGradesPath:    LastGradesPath,
+			GradesHistoryPath: GradesHistoryPath,
 		}
 		gradesHistory := gradeshistory.NewGradesHistory(saveCfg, logger)
 
 		updatesNum, err := gradesHistory.UpdateGradesHistory(coursesGrades)
 		if err != nil {
 			logger.Println(err)
-			os.Exit(1)
+			continue
 		}
 		log.Printf(
 			"have %v new updates",
@@ -71,12 +88,11 @@ func main() {
 		}
 		logger.Printf("sended %v messages\n", messagesSended)
 
-		checkIntervalDuraion := time.Minute * 10
 		logger.Printf(
 			"Waiting... next check at %q",
-			getNextCheckTime(checkIntervalDuraion).Format(time.Layout),
+			getNextCheckTime(checkInterval).Format(time.Layout),
 		)
-		time.Sleep(checkIntervalDuraion)
+		time.Sleep(checkInterval)
 	}
 }
 
@@ -86,7 +102,7 @@ func sendNotificationOnLastUpdates(
 ) (int, error) {
 	lastTimeNotifyed, err := notifyer.GetLastTimeNotifyed()
 	if err != nil {
-		lastTimeNotifyed = time.Now()
+		lastTimeNotifyed = time.Unix(0, 0)
 	}
 
 	updatesHistory, err := gradesHistory.GetGradesHistoryFromDate(lastTimeNotifyed)
@@ -142,24 +158,25 @@ func getNextCheckTime(sleepDuration time.Duration) time.Time {
 
 func getNotifyer() notifyer.Notifyer {
 	tgService := telegramnotifyer.NewTelegramNotifyer(
-		"5908469215:AAGB6TUPSN0aStQaGNZDjZRucOJHpj76G2E",
-		788782273,
+		telegramBotKey,
+		telegramChatID,
 	)
 
 	cfg := formatter.FormatConfig{
-		UpdatesToCheck: []string{"Grade", "Persentage", "Feedback"},
-		ToPrint:        []string{"Title", "Grade", "Persentage", "Feedback"},
-		ToCheckCreates: true,
+		UpdatesToCheck: UpdatesToCheck,
+		ToPrint:        ToPrint,
+		ToCheckCreates: false,
+		ToCheckRemoves: false,
 	}
 	fmter := formatter.NewFormatter(cfg)
 
-	return notifyer.NewNotifyer(fmter, tgService, lastTimeNotifyedFilePath)
+	return notifyer.NewNotifyer(fmter, tgService, lastTimeNotifyedPath)
 }
 
 func getGradesForNonHiddenCourses(
 	moodleAPI moodleapi.MoodleAPI,
 	courses []moodleapi.Course,
-) []gradeshistory.CourseGrades {
+) ([]gradeshistory.CourseGrades, error) {
 	coursesGrades := []gradeshistory.CourseGrades{}
 	for _, course := range courses {
 		if course.Hidden {
@@ -168,8 +185,7 @@ func getGradesForNonHiddenCourses(
 
 		grades, err := moodleAPI.GetCourseGrades(course)
 		if err != nil {
-			logger.Println(err)
-			os.Exit(1)
+			return nil, fmt.Errorf("failed to get course grades for %q: %v", course.Fullname, err)
 		}
 
 		coursesGrades = append(coursesGrades, gradeshistory.CourseGrades{
@@ -177,5 +193,5 @@ func getGradesForNonHiddenCourses(
 			Grades: grades,
 		})
 	}
-	return coursesGrades
+	return coursesGrades, nil
 }
