@@ -13,6 +13,7 @@ type Config struct {
 	Logger                     *log.Logger
 	UpdatesToCheck             []string
 	ToPrint                    []string
+	ToPrintOnUpdates           []string
 	TelegramBotKey             string
 	TelegramChatID             int
 	FailedRequestRepeatTimeout time.Duration
@@ -30,8 +31,9 @@ type telegramCredentialsJSON struct {
 }
 
 type configJSON struct {
-	UpdatesToCheck             []string `json:"uptdatesToCheck"`
+	UpdatesToCheck             []string `json:"updatesToCheck"`
 	ToPrint                    []string `json:"toPrint"`
+	ToPrintOnUpdates           []string `json:"toPrintOnUpdates"`
 	FailedRequestRepeatTimeout int      `json:"failedRequestRepeatTimeout"`
 	CheckInterval              int      `json:"checkInterval"`
 	LastGradesPath             string   `json:"lastGradesPath"`
@@ -58,6 +60,7 @@ func NewConfig(cfgReader io.Reader) (Config, error) {
 		Logger:                     logger,
 		UpdatesToCheck:             cfgJSON.UpdatesToCheck,
 		ToPrint:                    cfgJSON.ToPrint,
+		ToPrintOnUpdates:           cfgJSON.ToPrintOnUpdates,
 		TelegramBotKey:             telegramCredentials.TelegramBotKey,
 		TelegramChatID:             telegramCredentials.TelegramChatID,
 		FailedRequestRepeatTimeout: time.Duration(cfgJSON.FailedRequestRepeatTimeout) * time.Second,

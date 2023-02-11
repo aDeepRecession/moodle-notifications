@@ -7,7 +7,9 @@
     "Feedback"
   ],
   "toPrint": [
-    "Title",
+    "Title"
+  ],
+  "toPrintOnUpdates": [
     "Grade",
     "Persentage",
     "Feedback"

@@ -15,6 +15,41 @@ func NewFormatter(cfg FormatConfig) Formatter {
 	return Formatter{cfg}
 }
 
+type FormatConfig struct {
+	ToPrint          []string
+	ToPrintOnUpdates []string
+	UpdatesToCheck   []string
+	ToCheckCreates   bool
+	ToCheckRemoves   bool
+}
+
+type CourseGradesChange struct {
+	Course            Course
+	GradesTableChange []GradeRowChange
+}
+
+type Course struct {
+	Fullname string `json:"fullname"`
+}
+
+type GradeRowChange struct {
+	Type   string
+	Fields []string
+	From   GradeReport
+	To     GradeReport
+}
+
+type GradeReport struct {
+	ID           int
+	Title        string
+	Grade        string
+	Persentage   string
+	Feedback     string
+	Contribution string
+	Range        string
+	Weight       string
+}
+
 func (f Formatter) ConvertUpdatesToString(gradesChanges []CourseGradesChange) ([]string, error) {
 	messages := []string{}
 	for _, courseChange := range gradesChanges {
@@ -150,7 +185,33 @@ func (f Formatter) convertGradeChangeToString(rowChanges GradeRowChange) (string
 		changesStr.WriteString("\n")
 	}
 
+	for _, fieldToPrint := range f.cfg.ToPrintOnUpdates {
+		changed := slices.Contains(rowChanges.Fields, fieldToPrint)
+
+		if !changed {
+			continue
+		}
+
+		fieldChange, err := f.convertGradeField(
+			rowChanges.From,
+			rowChanges.To,
+			fieldToPrint,
+			changed,
+		)
+		if err != nil {
+			return "", err
+		}
+
+		changesStr.WriteString(fieldChange)
+
+		changesStr.WriteString("\n")
+	}
+
 	return changesStr.String(), nil
+}
+
+func (f Formatter) checkChangedToPrint() bool {
+	return true
 }
 
 func (f Formatter) convertGradeField(
@@ -197,38 +258,4 @@ func (f Formatter) getFieldValue(field string, gradeReport GradeReport) (string,
 	default:
 		return "", fmt.Errorf("bad field name to print = %q", field)
 	}
-}
-
-type FormatConfig struct {
-	ToPrint        []string
-	UpdatesToCheck []string
-	ToCheckCreates bool
-	ToCheckRemoves bool
-}
-
-type CourseGradesChange struct {
-	Course            Course
-	GradesTableChange []GradeRowChange
-}
-
-type Course struct {
-	Fullname string `json:"fullname"`
-}
-
-type GradeRowChange struct {
-	Type   string
-	Fields []string
-	From   GradeReport
-	To     GradeReport
-}
-
-type GradeReport struct {
-	ID           int
-	Title        string
-	Grade        string
-	Persentage   string
-	Feedback     string
-	Contribution string
-	Range        string
-	Weight       string
 }

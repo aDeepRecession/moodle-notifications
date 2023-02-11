@@ -169,10 +169,11 @@ func getNotifyer(cfg config.Config) notifyer.Notifyer {
 	)
 
 	formatterConfig := formatter.FormatConfig{
-		UpdatesToCheck: cfg.UpdatesToCheck,
-		ToPrint:        cfg.ToPrint,
-		ToCheckCreates: false,
-		ToCheckRemoves: false,
+		UpdatesToCheck:   cfg.UpdatesToCheck,
+		ToPrintOnUpdates: cfg.ToPrintOnUpdates,
+		ToPrint:          cfg.ToPrint,
+		ToCheckCreates:   false,
+		ToCheckRemoves:   false,
 	}
 	fmter := formatter.NewFormatter(formatterConfig)
 
