@@ -50,27 +50,30 @@ type GradeReport struct {
 	Weight       string
 }
 
-func (f Formatter) ConvertUpdatesToString(gradesChanges []CourseGradesChange) ([]string, error) {
+func (f Formatter) ConvertUpdatesToString(
+	allCoursesChanges []CourseGradesChange,
+	maxMsgLengh int,
+) ([]string, error) {
 	messages := []string{}
-	for _, courseChange := range gradesChanges {
-		msg := strings.Builder{}
+	for _, courseChange := range allCoursesChanges {
+		courseRelatedMessages := make([]string, 0, len(allCoursesChanges))
 
 		courseTitle := f.getCourseTitle(courseChange.Course.Fullname)
-		msg.WriteString(courseTitle)
-		msg.WriteString("\n\n")
+		courseRelatedMessages = append(courseRelatedMessages, courseTitle+"\n\n")
 
-		gradesChanges, err := f.convertGradeTableToString(courseChange.GradesTableChange)
+		gradesChanges, err := f.parseGradeTable(courseChange.GradesTableChange)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert updates for print: %v", err)
 		}
-		if gradesChanges == "" {
+		if len(gradesChanges) == 0 {
 			continue
 		}
 
-		msg.WriteString(gradesChanges)
-		msg.WriteString("\n\n")
+		courseRelatedMessages = append(courseRelatedMessages, gradesChanges...)
 
-		messages = append(messages, msg.String())
+		resultMessages := f.concatenate(courseRelatedMessages, maxMsgLengh)
+
+		messages = append(messages, resultMessages...)
 	}
 
 	return messages, nil
@@ -112,6 +115,28 @@ func (f Formatter) filterGradeRows(gradeRows []GradeRowChange) []GradeRowChange 
 	return filteredGradeChange
 }
 
+func (f Formatter) concatenate(pieces []string, maxLength int) []string {
+	concatenatedMessages := make([]string, 0, 2)
+
+	curMsg := strings.Builder{}
+	curMsg.Grow(maxLength)
+	for _, piece := range pieces {
+		lengthAfterConcatenation := curMsg.Len() + len(piece)
+		if lengthAfterConcatenation > maxLength {
+			concatenatedMessages = append(concatenatedMessages, curMsg.String())
+			curMsg.Reset()
+		}
+
+		curMsg.WriteString(piece)
+	}
+
+	if curMsg.Len() > 0 {
+		concatenatedMessages = append(concatenatedMessages, curMsg.String())
+	}
+
+	return concatenatedMessages
+}
+
 func (f Formatter) doesContainSomeUpdateToCheck(gradeChange GradeRowChange) bool {
 	for _, changedField := range f.cfg.UpdatesToCheck {
 		if slices.Contains(gradeChange.Fields, changedField) {
@@ -126,24 +151,22 @@ func (f Formatter) getCourseTitle(courseName string) string {
 	return fmt.Sprintf("%s:", courseName)
 }
 
-func (f Formatter) convertGradeTableToString(gradeChanges []GradeRowChange) (string, error) {
-	changesStr := strings.Builder{}
+func (f Formatter) parseGradeTable(gradeChanges []GradeRowChange) ([]string, error) {
+	changes := make([]string, 0, len(gradeChanges))
 
 	for _, gradeChange := range gradeChanges {
 		gradeChange, err := f.convertGradeChangeToString(gradeChange)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		if gradeChange == "" {
 			continue
 		}
 
-		changesStr.WriteString(gradeChange)
-
-		changesStr.WriteString("\n\n")
+		changes = append(changes, gradeChange+"\n\n")
 	}
 
-	return changesStr.String(), nil
+	return changes, nil
 }
 
 func (f Formatter) convertGradeChangeToString(rowChanges GradeRowChange) (string, error) {

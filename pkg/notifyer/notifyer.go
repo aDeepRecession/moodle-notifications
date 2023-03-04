@@ -62,7 +62,7 @@ func (tn Notifyer) GetLastTimeNotifyed() (time.Time, error) {
 func (tn *Notifyer) SendUpdates(updates []formatter.CourseGradesChange) (int, error) {
 	filteredUpdates := tn.formatter.FilterGradesChanges(updates)
 
-	messages, err := tn.formatter.ConvertUpdatesToString(filteredUpdates)
+	messages, err := tn.formatter.ConvertUpdatesToString(filteredUpdates, 4096)
 	if err != nil {
 		return 0, fmt.Errorf("failed to send updates: %v", err)
 	}
@@ -82,6 +82,9 @@ type Service interface {
 }
 
 type Formatter interface {
-	ConvertUpdatesToString(gradesChange []formatter.CourseGradesChange) ([]string, error)
+	ConvertUpdatesToString(
+		gradesChange []formatter.CourseGradesChange,
+		maxMsgLen int,
+	) ([]string, error)
 	FilterGradesChanges(courseChanges []formatter.CourseGradesChange) []formatter.CourseGradesChange
 }
