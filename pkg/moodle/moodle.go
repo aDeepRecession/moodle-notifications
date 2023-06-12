@@ -1,4 +1,4 @@
-package moodleapi
+package moodle
 
 import (
 	"encoding/json"
@@ -9,11 +9,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	moodlegrades "github.com/aDeepRecession/moodle-scrapper/pkg/moodleGrades"
 )
 
-type MoodleAPI struct {
+type Moodle struct {
 	token  string
 	userid string
 	log    *log.Logger
@@ -27,23 +25,24 @@ type Course struct {
 	Startdate         int64  `json:"startdate"`
 	Enddate           int64  `json:"enddate"`
 	Hidden            bool   `json:"hidden"`
+	Grades            []GradeReport
 }
 
-func NewMoodleAPI(token string, log *log.Logger) (MoodleAPI, error) {
-	moodleAPI := MoodleAPI{token: token, log: log}
+func NewMoodle(token string, log *log.Logger) (Moodle, error) {
+	moodleAPI := Moodle{token: token, log: log}
 	userid, err := moodleAPI.getUserID()
 	if err != nil {
-		return MoodleAPI{}, err
+		return Moodle{}, err
 	}
 	moodleAPI.userid = userid
 
 	return moodleAPI, nil
 }
 
-func (api MoodleAPI) GetCourseGrades(course Course) ([]moodlegrades.GradeReport, error) {
-	gradesManager := moodlegrades.NewMoodleGrades(api, api.userid)
+func (moodle Moodle) GetCourseGrades(course Course) ([]GradeReport, error) {
+	moodleUser := NewMoodleUser(moodle, moodle.userid)
 
-	courseGrades, err := gradesManager.GetCourseGrades(fmt.Sprint(course.ID))
+	courseGrades, err := moodleUser.GetCourseGrades(fmt.Sprint(course.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -51,25 +50,56 @@ func (api MoodleAPI) GetCourseGrades(course Course) ([]moodlegrades.GradeReport,
 	return courseGrades, nil
 }
 
-func (api MoodleAPI) GetCourses() ([]Course, error) {
+func (moodle Moodle) GetNonHiddenCourses() ([]Course, error) {
+	courses, err := moodle.GetCourses()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get course grades %v", err)
+	}
+
+	nonHiddenCourses := make([]Course, 0)
+	for _, course := range courses {
+		if course.Hidden {
+			continue
+		}
+
+		nonHiddenCourses = append(nonHiddenCourses, course)
+	}
+
+	return nonHiddenCourses, nil
+}
+
+func (moodle Moodle) GetCourses() ([]Course, error) {
 	data := map[string]string{
-		"userid": api.userid,
+		"userid": moodle.userid,
 	}
 
-	coursesJSON, err := api.MoodleAPIRequest("core_enrol_get_users_courses", data)
+	coursesJSON, err := moodle.MoodleAPIRequest("core_enrol_get_users_courses", data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get courses: %v", err)
 	}
 
-	courses, err := api.parseCoursesJSON(coursesJSON)
+	courses, err := moodle.parseCoursesJSON(coursesJSON)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get courses: %v", err)
+	}
+
+	for _, course := range courses {
+		if course.Hidden {
+			continue
+		}
+
+		courseGrades, err := moodle.GetCourseGrades(course)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get course grades for %q: %v", course.Fullname, err)
+		}
+
+		course.Grades = courseGrades
 	}
 
 	return courses, nil
 }
 
-func (api MoodleAPI) parseCoursesJSON(coursesJSON []byte) ([]Course, error) {
+func (api Moodle) parseCoursesJSON(coursesJSON []byte) ([]Course, error) {
 	var courses []Course
 	err := json.Unmarshal(coursesJSON, &courses)
 	if err != nil {
@@ -79,7 +109,7 @@ func (api MoodleAPI) parseCoursesJSON(coursesJSON []byte) ([]Course, error) {
 	return courses, nil
 }
 
-func (api MoodleAPI) getUserID() (string, error) {
+func (api Moodle) getUserID() (string, error) {
 	if api.userid != "" {
 		return api.userid, nil
 	}
@@ -99,7 +129,7 @@ func (api MoodleAPI) getUserID() (string, error) {
 	return userid, nil
 }
 
-func (api MoodleAPI) getCoreWebsiteInfo() ([]byte, error) {
+func (api Moodle) getCoreWebsiteInfo() ([]byte, error) {
 	info, err := api.MoodleAPIRequest("core_webservice_get_site_info", nil)
 	if err != nil {
 		return nil, err
@@ -107,7 +137,7 @@ func (api MoodleAPI) getCoreWebsiteInfo() ([]byte, error) {
 	return info, nil
 }
 
-func (api MoodleAPI) MoodleAPIRequest(
+func (api Moodle) MoodleAPIRequest(
 	requestFunction string,
 	dataArgs map[string]string,
 ) ([]byte, error) {
@@ -149,7 +179,7 @@ func (api MoodleAPI) MoodleAPIRequest(
 	return body, nil
 }
 
-func (api MoodleAPI) IsTokenGood() bool {
+func (api Moodle) isTokenGood() bool {
 	_, err := api.getCoreWebsiteInfo()
 	return err == nil
 }

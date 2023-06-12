@@ -1,11 +1,12 @@
-package gradeshistory
+package course
 
 import (
 	"testing"
 
-	moodleapi "github.com/aDeepRecession/moodle-scrapper/pkg/moodleAPI"
-	moodlegrades "github.com/aDeepRecession/moodle-scrapper/pkg/moodleGrades"
 	"github.com/stretchr/testify/assert"
+
+	moodleapi "github.com/aDeepRecession/moodle-scrapper/pkg/moodle"
+	moodlegrades "github.com/aDeepRecession/moodle-scrapper/pkg/moodleGrades"
 )
 
 func TestCoursesComparison(t *testing.T) {
@@ -13,11 +14,11 @@ func TestCoursesComparison(t *testing.T) {
 		gradeFrom := moodlegrades.GradeReport{ID: 5, Title: "Final exam", Grade: "-"}
 		gradeTo := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "60"}
 		course := moodleapi.Course{ID: 1, Fullname: "AGLA"}
-		courseFrom := []CourseGrades{{
+		courseFrom := []Course{{
 			Course: course,
 			Grades: []moodlegrades.GradeReport{gradeFrom},
 		}}
-		courseTo := []CourseGrades{{
+		courseTo := []Course{{
 			Course: course,
 			Grades: []moodlegrades.GradeReport{gradeTo},
 		}}
@@ -42,11 +43,11 @@ func TestCoursesComparison(t *testing.T) {
 		gradeFrom := moodlegrades.GradeReport{ID: 5, Title: "Final exam", Grade: "-"}
 		gradeTo := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "Error"}
 		course := moodleapi.Course{ID: 1, Fullname: "AGLA"}
-		courseFrom := []CourseGrades{{
+		courseFrom := []Course{{
 			Course: course,
 			Grades: []moodlegrades.GradeReport{gradeFrom},
 		}}
-		courseTo := []CourseGrades{{
+		courseTo := []Course{{
 			Course: course,
 			Grades: []moodlegrades.GradeReport{gradeTo},
 		}}
@@ -74,11 +75,11 @@ func TestCoursesComparison(t *testing.T) {
 		oldGrade := moodlegrades.GradeReport{ID: 2, Title: "midterm", Grade: "-"}
 		newGrade := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "60"}
 		course := moodleapi.Course{ID: 1, Fullname: "AGLA"}
-		courseFrom := []CourseGrades{{
+		courseFrom := []Course{{
 			Course: course,
 			Grades: []moodlegrades.GradeReport{oldGrade},
 		}}
-		courseTo := []CourseGrades{{
+		courseTo := []Course{{
 			Course: course,
 			Grades: []moodlegrades.GradeReport{oldGrade, newGrade},
 		}}
@@ -107,8 +108,8 @@ func TestCoursesComparison(t *testing.T) {
 	t.Run("new course", func(t *testing.T) {
 		gradeTo := moodlegrades.GradeReport{ID: 5, Title: "FINAL EXAM", Grade: "60"}
 		course := moodleapi.Course{ID: 1, Fullname: "AGLA"}
-		courseFrom := []CourseGrades{}
-		courseTo := []CourseGrades{{
+		courseFrom := []Course{}
+		courseTo := []Course{{
 			Course: course,
 			Grades: []moodlegrades.GradeReport{gradeTo},
 		}}

@@ -2,14 +2,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
 	"github.com/aDeepRecession/moodle-scrapper/pkg/config"
-	gradeshistory "github.com/aDeepRecession/moodle-scrapper/pkg/gradesHistory"
-	moodleapi "github.com/aDeepRecession/moodle-scrapper/pkg/moodleAPI"
-	moodletokensmanager "github.com/aDeepRecession/moodle-scrapper/pkg/moodleTokens"
+	"github.com/aDeepRecession/moodle-scrapper/pkg/course"
+	"github.com/aDeepRecession/moodle-scrapper/pkg/moodle"
 	"github.com/aDeepRecession/moodle-scrapper/pkg/notifyer"
 	"github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/formatter"
 	telegramnotifyer "github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/telegram"
@@ -26,54 +24,62 @@ func main() {
 
 	notifyer := getNotifyer(cfg)
 
+	saveCfg := course.SaveConfig{
+		LastGradesPath:    cfg.LastGradesPath,
+		GradesHistoryPath: cfg.GradesHistoryPath,
+	}
+
 	for {
-		token, err := moodletokensmanager.GetTokens(cfg.MoodleCredentialsPath, cfg.Logger)
+		token, err := moodle.GetTokens(cfg.MoodleCredentialsPath, cfg.Logger)
 		if err != nil {
 			cfg.Logger.Println(err)
-			os.Exit(1)
+
+			time.Sleep(cfg.FailedRequestRepeatTimeout)
+			continue
 		}
 
 		cfg.Logger.Println("initializing moodleAPI...")
-		moodleAPI, err := moodleapi.NewMoodleAPI(string(token), cfg.Logger)
-		if err != nil {
-			cfg.Logger.Println(err)
-			os.Exit(1)
-		}
-
-		cfg.Logger.Println("getting moodle courses...")
-		courses, err := moodleAPI.GetCourses()
-		if err != nil {
-			cfg.Logger.Println(err)
-			os.Exit(1)
-		}
-
-		coursesGrades, err := getGradesForNonHiddenCourses(moodleAPI, courses)
+		moodleAPI, err := moodle.NewMoodle(string(token), cfg.Logger)
 		if err != nil {
 			cfg.Logger.Println(err)
 			cfg.Logger.Printf(
 				"Waiting... next check at %q",
 				getNextCheckTime(cfg.FailedRequestRepeatTimeout).Format(time.Layout),
 			)
+
 			time.Sleep(cfg.FailedRequestRepeatTimeout)
-		}
-
-		saveCfg := gradeshistory.SaveConfig{
-			LastGradesPath:    cfg.LastGradesPath,
-			GradesHistoryPath: cfg.GradesHistoryPath,
-		}
-		gradesHistory := gradeshistory.NewGradesHistory(saveCfg, cfg.Logger)
-
-		updatesNum, err := gradesHistory.UpdateGradesHistory(coursesGrades)
-		if err != nil {
-			cfg.Logger.Println(err)
 			continue
 		}
-		log.Printf(
-			"have %v new updates",
-			updatesNum,
-		)
 
-		messagesSended, err := sendNotificationOnLastUpdates(&notifyer, gradesHistory)
+		cfg.Logger.Println("getting moodle grades...")
+		coursesGrades, err := moodleAPI.GetNonHiddenCourses()
+		if err != nil {
+			cfg.Logger.Println(err)
+			cfg.Logger.Printf(
+				"Waiting... next check at %q",
+				getNextCheckTime(cfg.FailedRequestRepeatTimeout).Format(time.Layout),
+			)
+
+			time.Sleep(cfg.FailedRequestRepeatTimeout)
+			continue
+		}
+
+		grades := course.NewGrades(saveCfg, cfg.Logger)
+
+		gradeChanges, err := grades.Compare(coursesGrades)
+		if err != nil {
+			cfg.Logger.Println(err)
+
+			time.Sleep(cfg.FailedRequestRepeatTimeout)
+			continue
+		}
+
+		isAnyChange := len(gradeChanges) > 0
+		if isAnyChange {
+			grades.Save(coursesGrades)
+		}
+
+		messagesSended, err := sendNotificationOnLastUpdates(&notifyer, gradeChanges)
 		if err != nil {
 			cfg.Logger.Println(err)
 		}
@@ -104,19 +110,9 @@ func getConfig(configPath string) (config.Config, error) {
 
 func sendNotificationOnLastUpdates(
 	notifyer *notifyer.Notifyer,
-	gradesHistory gradeshistory.GradesHistory,
+	gradesChange []course.CourseGradesChange,
 ) (int, error) {
-	lastTimeNotifyed, err := notifyer.GetLastTimeNotifyed()
-	if err != nil {
-		lastTimeNotifyed = time.Unix(0, 0)
-	}
-
-	updatesHistory, err := gradesHistory.GetGradesHistoryFromDate(lastTimeNotifyed)
-	if err != nil {
-		return 0, err
-	}
-
-	messagesSended, err := notifyer.SendUpdates(convertCourseGradesChange(updatesHistory))
+	messagesSended, err := notifyer.SendUpdates(convertCourseGradesChange(gradesChange))
 	if err != nil {
 		return 0, err
 	}
@@ -131,7 +127,7 @@ func sendNotificationOnLastUpdates(
 }
 
 func convertCourseGradesChange(
-	historyCourseGrades []gradeshistory.CourseGradesChange,
+	historyCourseGrades []course.CourseGradesChange,
 ) []formatter.CourseGradesChange {
 	formatterGrades := []formatter.CourseGradesChange{}
 	for _, change := range historyCourseGrades {
@@ -178,27 +174,4 @@ func getNotifyer(cfg config.Config) notifyer.Notifyer {
 	fmter := formatter.NewFormatter(formatterConfig)
 
 	return notifyer.NewNotifyer(fmter, tgService, cfg.LastTimeNotifyedPath)
-}
-
-func getGradesForNonHiddenCourses(
-	moodleAPI moodleapi.MoodleAPI,
-	courses []moodleapi.Course,
-) ([]gradeshistory.CourseGrades, error) {
-	coursesGrades := []gradeshistory.CourseGrades{}
-	for _, course := range courses {
-		if course.Hidden {
-			continue
-		}
-
-		grades, err := moodleAPI.GetCourseGrades(course)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get course grades for %q: %v", course.Fullname, err)
-		}
-
-		coursesGrades = append(coursesGrades, gradeshistory.CourseGrades{
-			Course: course,
-			Grades: grades,
-		})
-	}
-	return coursesGrades, nil
 }

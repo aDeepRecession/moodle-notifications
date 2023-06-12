@@ -20,5 +20,6 @@ func NewTelegramNotifyer(botid string, chatid int) TelegramNotifyer {
 func (tn TelegramNotifyer) Send(msg string) error {
 	ctx := context.Background()
 	err := tn.tg.Send(ctx, msg)
+
 	return err
 }

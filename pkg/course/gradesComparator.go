@@ -1,16 +1,16 @@
-package gradeshistory
+package course
 
 import (
 	"log"
 	"sort"
 
-	moodleapi "github.com/aDeepRecession/moodle-scrapper/pkg/moodleAPI"
-	moodlegrades "github.com/aDeepRecession/moodle-scrapper/pkg/moodleGrades"
 	"github.com/r3labs/diff/v3"
+
+	"github.com/aDeepRecession/moodle-scrapper/pkg/moodle"
 )
 
 type CourseGradesChange struct {
-	Course            moodleapi.Course
+	Course            moodle.Course
 	GradesTableChange []GradeRowChange
 }
 
@@ -18,8 +18,8 @@ type GradeRowChange struct {
 	ID     int
 	Type   string
 	Fields []string
-	From   moodlegrades.GradeReport
-	To     moodlegrades.GradeReport
+	From   moodle.GradeReport
+	To     moodle.GradeReport
 }
 
 type gradesComparator struct {
@@ -30,7 +30,7 @@ func newGradesComparator(log *log.Logger) gradesComparator {
 	return gradesComparator{log}
 }
 
-func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []CourseGradesChange {
+func (gc gradesComparator) compareCourseGrades(from, to []moodle.Course) []CourseGradesChange {
 	gc.sortCourses(&from)
 	gc.sortCourses(&to)
 
@@ -45,19 +45,19 @@ func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []Course
 
 		gradesTableChange := []GradeRowChange{}
 
-		newCourseAdded := fromCourse.Course.ID > toCourse.Course.ID
+		newCourseAdded := fromCourse.ID > toCourse.ID
 		if newCourseAdded {
 			gradesTableChange = gc.compareGradeReports(nil, toCourse.Grades)
 			toCourseInx++
 		}
 
-		oldCourseRemoved := fromCourse.Course.ID < toCourse.Course.ID
+		oldCourseRemoved := fromCourse.ID < toCourse.ID
 		if oldCourseRemoved {
 			gradesTableChange = gc.compareGradeReports(fromCourse.Grades, nil)
 			fromCourseInx++
 		}
 
-		theSameCourses := fromCourse.Course.ID == toCourse.Course.ID
+		theSameCourses := fromCourse.ID == toCourse.ID
 		if theSameCourses {
 			gradesTableChange = gc.compareGradeReports(fromCourse.Grades, toCourse.Grades)
 			fromCourseInx++
@@ -70,7 +70,7 @@ func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []Course
 		}
 
 		courseGradesChanges := CourseGradesChange{
-			Course:            fromCourse.Course,
+			Course:            fromCourse,
 			GradesTableChange: gradesTableChange,
 		}
 		courseGradesChange = append(courseGradesChange, courseGradesChanges)
@@ -81,7 +81,7 @@ func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []Course
 		gradesTableChange := gc.compareGradeReports(fromCourse.Grades, nil)
 
 		courseGradesChanges := CourseGradesChange{
-			Course:            fromCourse.Course,
+			Course:            fromCourse,
 			GradesTableChange: gradesTableChange,
 		}
 		courseGradesChange = append(courseGradesChange, courseGradesChanges)
@@ -94,7 +94,7 @@ func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []Course
 		gradesTableChange := gc.compareGradeReports(nil, toCourse.Grades)
 
 		courseGradesChanges := CourseGradesChange{
-			Course:            toCourse.Course,
+			Course:            toCourse,
 			GradesTableChange: gradesTableChange,
 		}
 		courseGradesChange = append(courseGradesChange, courseGradesChanges)
@@ -106,7 +106,7 @@ func (gc gradesComparator) compareCourseGrades(from, to []CourseGrades) []Course
 }
 
 func (gc gradesComparator) compareGradeReports(
-	from, to []moodlegrades.GradeReport,
+	from, to []moodle.GradeReport,
 ) []GradeRowChange {
 	gc.sortGradesRows(&from)
 	gc.sortGradesRows(&to)
@@ -188,7 +188,7 @@ func (gc gradesComparator) compareGradeReports(
 	return gradesTableChnages
 }
 
-func (gc gradesComparator) compareGrades(from, to moodlegrades.GradeReport) GradeRowChange {
+func (gc gradesComparator) compareGrades(from, to moodle.GradeReport) GradeRowChange {
 	changes, err := diff.Diff(from, to)
 	if err != nil {
 		panic(err)
@@ -230,14 +230,14 @@ func (gc gradesComparator) isFieldUpdateUseless(to string) bool {
 	return false
 }
 
-func (gc gradesComparator) sortGradesRows(rows *[]moodlegrades.GradeReport) {
+func (gc gradesComparator) sortGradesRows(rows *[]moodle.GradeReport) {
 	sort.Slice((*rows), func(i, j int) bool {
 		return (*rows)[i].ID < (*rows)[j].ID
 	})
 }
 
-func (gc gradesComparator) sortCourses(grades *[]CourseGrades) {
+func (gc gradesComparator) sortCourses(grades *[]moodle.Course) {
 	sort.Slice((*grades), func(i, j int) bool {
-		return (*grades)[i].Course.ID < (*grades)[j].Course.ID
+		return (*grades)[i].ID < (*grades)[j].ID
 	})
 }

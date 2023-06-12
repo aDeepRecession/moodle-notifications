@@ -1,4 +1,4 @@
-package moodlegrades
+package moodle
 
 import (
 	"errors"
@@ -22,20 +22,20 @@ type GradeReport struct {
 	Weight       string
 }
 
-type MoodleGrades struct {
+type MoodleUser struct {
 	api    moodleApi
 	userid string
 }
 
-func NewMoodleGrades(api moodleApi, userid string) MoodleGrades {
-	return MoodleGrades{api, userid}
+func NewMoodleUser(api moodleApi, userid string) MoodleUser {
+	return MoodleUser{api, userid}
 }
 
 type moodleApi interface {
 	MoodleAPIRequest(string, map[string]string) ([]byte, error)
 }
 
-func (mg MoodleGrades) GetCourseGrades(courseid string) ([]GradeReport, error) {
+func (mg MoodleUser) GetCourseGrades(courseid string) ([]GradeReport, error) {
 	data := map[string]string{
 		"userid":   mg.userid,
 		"courseid": courseid,
@@ -52,7 +52,7 @@ func (mg MoodleGrades) GetCourseGrades(courseid string) ([]GradeReport, error) {
 	return grades, nil
 }
 
-func (mg MoodleGrades) parseGradeTable(gradesJSON string) []GradeReport {
+func (mg MoodleUser) parseGradeTable(gradesJSON string) []GradeReport {
 	gradeRows := gjson.Get(gradesJSON, "tables.0.tabledata").Array()
 	gradesReport := []GradeReport{}
 
@@ -72,7 +72,7 @@ func (mg MoodleGrades) parseGradeTable(gradesJSON string) []GradeReport {
 	return gradesReport
 }
 
-func (mg MoodleGrades) parseGradeRow(gradeRow gjson.Result) (GradeReport, error) {
+func (mg MoodleUser) parseGradeRow(gradeRow gjson.Result) (GradeReport, error) {
 	titleUnparced := gradeRow.Get("itemname.content").String()
 
 	if !mg.isRowContainsGrade(titleUnparced) {
@@ -122,7 +122,7 @@ func (mg MoodleGrades) parseGradeRow(gradeRow gjson.Result) (GradeReport, error)
 	return gradeReport, nil
 }
 
-func (mg MoodleGrades) parseGrade(unparsedGrade string) string {
+func (mg MoodleUser) parseGrade(unparsedGrade string) string {
 	grade := mg.removeTags(unparsedGrade)
 
 	if grade == "Error" || grade == "-" {
@@ -132,7 +132,7 @@ func (mg MoodleGrades) parseGrade(unparsedGrade string) string {
 	return grade
 }
 
-func (mg MoodleGrades) parsePersentage(unparsedPersentage string) string {
+func (mg MoodleUser) parsePersentage(unparsedPersentage string) string {
 	persentage := mg.removeTags(unparsedPersentage)
 
 	if persentage == "Error" || persentage == "-" {
@@ -142,27 +142,27 @@ func (mg MoodleGrades) parsePersentage(unparsedPersentage string) string {
 	return persentage
 }
 
-func (mg MoodleGrades) parseFeedback(feedbackUnparced string) string {
+func (mg MoodleUser) parseFeedback(feedbackUnparced string) string {
 	feedback := mg.removeTags(feedbackUnparced)
 
 	feedback = strings.ReplaceAll(feedback, "&ndash;", "")
 	return strings.ReplaceAll(feedback, "&nbsp;", "")
 }
 
-func (mg MoodleGrades) parseRange(rangeUnparced string) string {
+func (mg MoodleUser) parseRange(rangeUnparced string) string {
 	return strings.ReplaceAll(rangeUnparced, "&ndash;", "-")
 }
 
-func (mg MoodleGrades) isRowContainsGrade(row string) bool {
+func (mg MoodleUser) isRowContainsGrade(row string) bool {
 	return strings.Contains(row, "class=\"gradeitemheader\"")
 }
 
-func (mg MoodleGrades) parseTitle(unparsedTitle string) string {
+func (mg MoodleUser) parseTitle(unparsedTitle string) string {
 	title := mg.getStringBetween(unparsedTitle, "title=\"", "\"")
 	return title
 }
 
-func (mg MoodleGrades) getStringBetween(str string, startS string, endS string) string {
+func (mg MoodleUser) getStringBetween(str string, startS string, endS string) string {
 	s := strings.Index(str, startS)
 	if s == -1 {
 		return ""
@@ -176,7 +176,7 @@ func (mg MoodleGrades) getStringBetween(str string, startS string, endS string) 
 	return result
 }
 
-func (mg MoodleGrades) removeTags(str string) string {
+func (mg MoodleUser) removeTags(str string) string {
 	for strings.Contains(str, "<") {
 		start := strings.Index(str, "<")
 		end := strings.Index(str, ">")
