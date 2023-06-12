@@ -28,8 +28,8 @@ type Course struct {
 	Grades            []GradeReport
 }
 
-func NewMoodle(token string, log *log.Logger) (Moodle, error) {
-	moodleAPI := Moodle{token: token, log: log}
+func NewMoodle(token MoodleToken, log *log.Logger) (Moodle, error) {
+	moodleAPI := Moodle{token: string(token), log: log}
 	userid, err := moodleAPI.getUserID()
 	if err != nil {
 		return Moodle{}, err
@@ -56,7 +56,7 @@ func (moodle Moodle) GetNonHiddenCourses() ([]Course, error) {
 		return nil, fmt.Errorf("failed to get course grades %v", err)
 	}
 
-	nonHiddenCourses := make([]Course, 0)
+	nonHiddenCourses := make([]Course, 0, 0)
 	for _, course := range courses {
 		if course.Hidden {
 			continue
@@ -83,17 +83,13 @@ func (moodle Moodle) GetCourses() ([]Course, error) {
 		return nil, fmt.Errorf("failed to get courses: %v", err)
 	}
 
-	for _, course := range courses {
-		if course.Hidden {
-			continue
-		}
-
-		courseGrades, err := moodle.GetCourseGrades(course)
+	for i := range courses {
+		courseGrades, err := moodle.GetCourseGrades(courses[i])
 		if err != nil {
-			return nil, fmt.Errorf("failed to get course grades for %q: %v", course.Fullname, err)
+			return nil, fmt.Errorf("failed to get course grades for %q: %v", courses[i].Fullname, err)
 		}
 
-		course.Grades = courseGrades
+		courses[i].Grades = courseGrades
 	}
 
 	return courses, nil

@@ -45,6 +45,21 @@ type configJSON struct {
 
 var logger *log.Logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 
+func GetConfigFromPath(configPath string) (Config, error) {
+	f, err := os.OpenFile(configPath, os.O_RDONLY, 0644)
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to get configuration: %v", err)
+	}
+	defer f.Close()
+
+	cfg, err := NewConfig(f)
+	if err != nil {
+		return Config{}, fmt.Errorf("failed to get configuration: %v", err)
+	}
+
+	return cfg, nil
+}
+
 func NewConfig(cfgReader io.Reader) (Config, error) {
 	cfgJSON, err := getConfigJSON(cfgReader)
 	if err != nil {

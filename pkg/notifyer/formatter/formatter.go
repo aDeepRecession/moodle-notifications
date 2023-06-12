@@ -4,11 +4,40 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aDeepRecession/moodle-scrapper/pkg/course"
 	"golang.org/x/exp/slices"
 )
 
 type Formatter struct {
 	cfg FormatConfig
+}
+
+func ConvertCourseGradesChange(
+	historyCourseGrades []course.CourseGradesChange,
+) []CourseGradesChange {
+	formatterGrades := []CourseGradesChange{}
+	for _, change := range historyCourseGrades {
+
+		formatterTableChange := []GradeRowChange{}
+		for _, historyTableChage := range change.GradesTableChange {
+
+			formatterRowChange := GradeRowChange{
+				Type:   historyTableChage.Type,
+				Fields: historyTableChage.Fields,
+				From:   GradeReport(historyTableChage.From),
+				To:     GradeReport(historyTableChage.To),
+			}
+			formatterTableChange = append(formatterTableChange, formatterRowChange)
+		}
+
+		newGradeChange := CourseGradesChange{
+			Course:            Course{Fullname: change.Course.Fullname},
+			GradesTableChange: formatterTableChange,
+		}
+		formatterGrades = append(formatterGrades, newGradeChange)
+	}
+
+	return formatterGrades
 }
 
 func NewFormatter(cfg FormatConfig) Formatter {

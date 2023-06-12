@@ -6,7 +6,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/aDeepRecession/moodle-scrapper/pkg/config"
 	"github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/formatter"
+	"github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/telegram"
 )
 
 type Notifyer struct {
@@ -15,9 +17,27 @@ type Notifyer struct {
 	lastTimeNotifyedFilePath string
 }
 
+func NewTelegramNotifyer(cfg config.Config) Notifyer {
+	tgService := telegram.NewTelegramService(
+		cfg.TelegramBotKey,
+		cfg.TelegramChatID,
+	)
+
+	formatterConfig := formatter.FormatConfig{
+		UpdatesToCheck:   cfg.UpdatesToCheck,
+		ToPrintOnUpdates: cfg.ToPrintOnUpdates,
+		ToPrint:          cfg.ToPrint,
+		ToCheckCreates:   false,
+		ToCheckRemoves:   false,
+	}
+	fmter := formatter.NewFormatter(formatterConfig)
+
+	return NewNotifyer(tgService, fmter, cfg.LastTimeNotifyedPath)
+}
+
 func NewNotifyer(
-	formatter Formatter,
 	service Service,
+	formatter Formatter,
 	lastTimeNotifyedFilePath string,
 ) Notifyer {
 	return Notifyer{service, formatter, lastTimeNotifyedFilePath}

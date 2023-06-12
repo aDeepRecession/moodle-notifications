@@ -1,4 +1,4 @@
-package telegramnotifyer
+package telegram
 
 import (
 	"context"
@@ -6,18 +6,18 @@ import (
 	"github.com/aDeepRecession/moodle-scrapper/pkg/notifyer/telegram/telegram"
 )
 
-type TelegramNotifyer struct {
+type TelegramService struct {
 	tg *telegram.Telegram
 }
 
-func NewTelegramNotifyer(botid string, chatid int) TelegramNotifyer {
+func NewTelegramService(botid string, chatid int) TelegramService {
 	tel, _ := telegram.New(botid)
 	tel.AddReceivers(int64(chatid))
 
-	return TelegramNotifyer{tel}
+	return TelegramService{tel}
 }
 
-func (tn TelegramNotifyer) Send(msg string) error {
+func (tn TelegramService) Send(msg string) error {
 	ctx := context.Background()
 	err := tn.tg.Send(ctx, msg)
 

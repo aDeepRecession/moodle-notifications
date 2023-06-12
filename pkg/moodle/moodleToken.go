@@ -30,7 +30,7 @@ func GetTokens(credentialsPath string, logger *log.Logger) (MoodleToken, error) 
 }
 
 func check(token MoodleToken, logger *log.Logger) bool {
-	api, err := NewMoodle(string(token), logger)
+	api, err := NewMoodle(token, logger)
 	if err != nil {
 		return false
 	}
