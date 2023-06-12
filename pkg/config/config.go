@@ -45,19 +45,21 @@ type configJSON struct {
 
 var logger *log.Logger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
 
-func GetConfigFromPath(configPath string) (Config, error) {
+func GetConfigFromPath(configPath string) Config {
 	f, err := os.OpenFile(configPath, os.O_RDONLY, 0644)
 	if err != nil {
-		return Config{}, fmt.Errorf("failed to get configuration: %v", err)
+		log.Printf("failed to get configuration: %v", err)
+		os.Exit(0)
 	}
 	defer f.Close()
 
 	cfg, err := NewConfig(f)
 	if err != nil {
-		return Config{}, fmt.Errorf("failed to get configuration: %v", err)
+		log.Printf("failed to get configuration: %v", err)
+		os.Exit(0)
 	}
 
-	return cfg, nil
+	return cfg
 }
 
 func NewConfig(cfgReader io.Reader) (Config, error) {
@@ -102,6 +104,7 @@ func getConfigJSON(cfgReader io.Reader) (configJSON, error) {
 	if err != nil {
 		return configJSON{}, fmt.Errorf("failed to get config: %v", err)
 	}
+
 	return cfgJSON, nil
 }
 
@@ -121,6 +124,14 @@ func getTelegramCredentials(credentialsPath string) (telegramCredentialsJSON, er
 	err = json.Unmarshal(credentialsByte, &credentials)
 	if err != nil {
 		return telegramCredentialsJSON{}, fmt.Errorf("failed to get config: %v", err)
+	}
+
+	if credentials.TelegramBotKey == "" {
+		return telegramCredentialsJSON{}, fmt.Errorf("telegram bot key is empty")
+	}
+
+	if credentials.TelegramChatID == 0 {
+		return telegramCredentialsJSON{}, fmt.Errorf("telegram chatID is empty")
 	}
 
 	return credentials, nil

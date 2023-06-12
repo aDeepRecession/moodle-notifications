@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/aDeepRecession/moodle-scrapper/pkg/config"
 	"github.com/aDeepRecession/moodle-scrapper/pkg/course"
@@ -15,11 +14,8 @@ import (
 var configPath string = "./config.json"
 
 func main() {
-	cfg, err := config.GetConfigFromPath(configPath)
-	if err != nil {
-		cfg.Logger.Println(err)
-		os.Exit(1)
-	}
+
+	cfg := config.GetConfigFromPath(configPath)
 
 	notifyer := notifyer.NewTelegramNotifyer(cfg)
 
