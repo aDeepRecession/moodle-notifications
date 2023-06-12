@@ -22,7 +22,7 @@ func newCredentials(credentialsPath string) Credentials {
 }
 
 func (cm Credentials) get() (CredentialsData, error) {
-	credentialsFile, err := os.OpenFile(cm.CredentialsPath, os.O_RDONLY, 0644)
+	credentialsFile, err := os.OpenFile(cm.CredentialsPath, os.O_RDONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return CredentialsData{}, fmt.Errorf("failed to get credentials")
 	}
@@ -36,6 +36,10 @@ func (cm Credentials) get() (CredentialsData, error) {
 	err = json.Unmarshal(credentialsJSON, &credentials)
 	if err != nil {
 		return CredentialsData{}, fmt.Errorf("failed to get credentials")
+	}
+
+	if credentials.Login == "" && credentials.Password == "" && credentials.Token == "" {
+		return CredentialsData{}, fmt.Errorf("innopolis credentials are empty")
 	}
 
 	return credentials, nil

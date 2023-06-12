@@ -67,7 +67,9 @@ func main() {
 
 		grades.Save(coursesGrades)
 
-		messagesSended, err := notifyer.SendUpdates(formatter.ConvertCourseGradesChange(gradeChanges))
+		messagesSended, err := notifyer.SendUpdates(
+			formatter.ConvertCourseGradesChange(gradeChanges),
+		)
 		if err != nil {
 			output.PrintError(err)
 		}
