@@ -1,5 +1,5 @@
 # moodle-notifications
-a simple moodle grades notifyer that stores all grade changes and reports about important changes
+a simple grades notifyer for Innopolis Moodle that periodically fetches all grade information from Moodle and reports about important changes
 
 ## How to use
 1. write login and password or write a token to `moodle-credentials.json`
@@ -34,3 +34,7 @@ Title:  "Link to Assignment activity Joint Assignment 03"
 Grade:  ""  ->  "4"
 Persentage:  ""  ->  "100 %"
 ```
+
+## Diagrams
+![Dataflow diagram](/diagrams/data-flow-diagram.png)
+![Use case diagram](/diagrams/use-case-diagram.png)
